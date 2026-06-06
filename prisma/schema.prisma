@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum OppType {
+  BID
+  PQQ
+  RFQ
+  EOI
+  NDA
+  TENDER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Result {
+  NONE
+  AWARDED
+  LOST
+  CANCELLED
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  CONTRIBUTOR
+  VIEWER
+}
+
+model User {
+  id        String  @id @default(cuid())
+  name      String
+  email     String  @unique
+  roleTitle String
+  access    Role    @default(CONTRIBUTOR)
+  avatarHue Int     @default(250)
+  initials  String  @default("")
+  ownedOpps    Opportunity[] @relation("owner")
+  reviewedOpps Opportunity[] @relation("reviewer")
+  createdAt DateTime @default(now())
+}
+
+model Client {
+  id       String @id @default(cuid())
+  name     String
+  sector   String @default("")
+  contact  String @default("")
+  portal   String @default("")
+  loginRef String @default("")
+  wins     Int    @default(0)
+  losses   Int    @default(0)
+  opps     Opportunity[]
+}
+
+model StatusConfig {
+  id    String @id @default(cuid())
+  label String @unique
+  stage String
+  hue   Int
+  order Int
+  opps  Opportunity[]
+}
+
+model Opportunity {
+  id             String   @id @default(cuid())
+  ref            String   @unique
+  title          String
+  clientId       String
+  client         Client   @relation(fields: [clientId], references: [id])
+  portal         String   @default("")
+  type           String   @default("BID")
+  classification String   @default("")
+  procurement    String   @default("")
+  statusId       String
+  status         StatusConfig @relation(fields: [statusId], references: [id])
+  priority       String   @default("MEDIUM")
+  ownerId        String?
+  owner          User?    @relation("owner", fields: [ownerId], references: [id])
+  reviewerId     String?
+  reviewer       User?    @relation("reviewer", fields: [reviewerId], references: [id])
+
+  rfpReceived      DateTime?
+  siteVisit        DateTime?
+  questionDeadline DateTime?
+  bidDue           DateTime?
+  submission       DateTime?
+  followUp         DateTime?
+
+  bondRequired  Boolean  @default(false)
+  bondPct       Float    @default(0)
+  bondValidity  DateTime?
+
+  result        String   @default("NONE")
+  estValue      Float    @default(0)
+  notes         String   @default("")
+
+  checklist     String?  // JSON string
+  documents     Document[]
+  followUps     FollowUp[]
+  activity      ActivityLog[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Document {
+  id    String  @id @default(cuid())
+  oppId String
+  name  String
+  url   String  @default("")
+  kind  String  @default("file")
+  meta  String  @default("")
+  opp   Opportunity @relation(fields: [oppId], references: [id], onDelete: Cascade)
+}
+
+model FollowUp {
+  id    String   @id @default(cuid())
+  oppId String
+  n     Int
+  label String
+  dueAt DateTime?
+  done  Boolean  @default(false)
+  opp   Opportunity @relation(fields: [oppId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  oppId     String
+  userId    String?
+  verb      String
+  createdAt DateTime @default(now())
+  opp       Opportunity @relation(fields: [oppId], references: [id], onDelete: Cascade)
+}
+
+model SavedView {
+  id     String @id @default(cuid())
+  userId String
+  name   String
+  config String // JSON
+}

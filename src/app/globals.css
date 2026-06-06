@@ -1,26 +1,335 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* BidFlow Tracker — Design System
+   Warm soft-neutral canvas · white cards · amber/terracotta accent
+   (Hanken Grotesk + JetBrains Mono are loaded via <link> in layout.tsx) */
+
+@custom-variant dark (&:is([data-theme="dark"] *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* fonts */
+  --font-sans: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* BidFlow color tokens exposed to Tailwind */
+  --color-bg:           var(--bf-bg);
+  --color-bg-2:         var(--bf-bg-2);
+  --color-surface:      var(--bf-surface);
+  --color-surface-2:    var(--bf-surface-2);
+  --color-surface-3:    var(--bf-surface-3);
+  --color-sidebar:      var(--bf-sidebar);
+  --color-border:       var(--bf-border);
+  --color-border-2:     var(--bf-border-2);
+  --color-border-strong:var(--bf-border-strong);
+  --color-text:         var(--bf-text);
+  --color-text-2:       var(--bf-text-2);
+  --color-text-3:       var(--bf-text-3);
+  --color-text-faint:   var(--bf-text-faint);
+  --color-accent:       var(--bf-accent);
+  --color-accent-hover: var(--bf-accent-hover);
+  --color-accent-soft:  var(--bf-accent-soft);
+  --color-accent-text:  var(--bf-accent-text);
+  --color-on-accent:    var(--bf-on-accent);
+  --color-good:         var(--bf-good);
+  --color-good-soft:    var(--bf-good-soft);
+  --color-warn:         var(--bf-warn);
+  --color-warn-soft:    var(--bf-warn-soft);
+  --color-danger:       var(--bf-danger);
+  --color-danger-soft:  var(--bf-danger-soft);
+  --color-info:         var(--bf-info);
+  --color-info-soft:    var(--bf-info-soft);
+
+  /* radius */
+  --radius-xs:   6px;
+  --radius-sm:   8px;
+  --radius-md:   11px;
+  --radius-lg:   15px;
+  --radius-xl:   20px;
+  --radius-pill: 999px;
+
+  /* shadows */
+  --shadow-sm:  var(--bf-shadow-sm);
+  --shadow-md:  var(--bf-shadow-md);
+  --shadow-lg:  var(--bf-shadow-lg);
+  --shadow-pop: var(--bf-shadow-pop);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ─── Light theme ─────────────────────────────────────────── */
+:root {
+  --bf-accent:         oklch(0.56 0.13 46);
+  --bf-accent-hover:   oklch(0.50 0.135 44);
+  --bf-accent-press:   oklch(0.45 0.13 44);
+  --bf-accent-soft:    oklch(0.95 0.032 55);
+  --bf-accent-soft-bd: oklch(0.88 0.05 52);
+  --bf-accent-text:    oklch(0.46 0.13 45);
+  --bf-on-accent:      oklch(0.99 0.01 60);
+
+  --bf-bg:         oklch(0.984 0.004 75);
+  --bf-bg-2:       oklch(0.975 0.005 72);
+  --bf-surface:    #ffffff;
+  --bf-surface-2:  oklch(0.978 0.004 75);
+  --bf-surface-3:  oklch(0.965 0.006 72);
+  --bf-sidebar:    oklch(0.974 0.005 73);
+  --bf-border:     oklch(0.922 0.006 70);
+  --bf-border-2:   oklch(0.945 0.005 72);
+  --bf-border-strong: oklch(0.875 0.008 68);
+
+  --bf-text:       oklch(0.27 0.012 58);
+  --bf-text-2:     oklch(0.46 0.012 58);
+  --bf-text-3:     oklch(0.60 0.011 58);
+  --bf-text-faint: oklch(0.72 0.008 60);
+
+  --bf-shadow-sm:  0 1px 2px oklch(0.4 0.02 60 / 0.06), 0 1px 1px oklch(0.4 0.02 60 / 0.04);
+  --bf-shadow-md:  0 4px 14px oklch(0.4 0.02 60 / 0.07), 0 1px 3px oklch(0.4 0.02 60 / 0.05);
+  --bf-shadow-lg:  0 14px 40px oklch(0.35 0.02 60 / 0.12), 0 4px 10px oklch(0.35 0.02 60 / 0.06);
+  --bf-shadow-pop: 0 18px 50px oklch(0.3 0.02 60 / 0.18), 0 6px 14px oklch(0.3 0.02 60 / 0.08);
+
+  --bf-good:       oklch(0.58 0.11 155);
+  --bf-good-soft:  oklch(0.95 0.04 155);
+  --bf-warn:       oklch(0.69 0.13 70);
+  --bf-warn-soft:  oklch(0.95 0.05 75);
+  --bf-danger:     oklch(0.58 0.16 25);
+  --bf-danger-soft:oklch(0.95 0.04 25);
+  --bf-info:       oklch(0.58 0.10 240);
+  --bf-info-soft:  oklch(0.95 0.03 240);
+}
+
+/* ─── Dark theme ──────────────────────────────────────────── */
+[data-theme="dark"] {
+  --bf-accent:         oklch(0.68 0.13 52);
+  --bf-accent-hover:   oklch(0.73 0.13 54);
+  --bf-accent-press:   oklch(0.63 0.13 50);
+  --bf-accent-soft:    oklch(0.34 0.05 50);
+  --bf-accent-soft-bd: oklch(0.42 0.06 50);
+  --bf-accent-text:    oklch(0.78 0.11 56);
+  --bf-on-accent:      oklch(0.18 0.02 55);
+
+  --bf-bg:         oklch(0.185 0.006 70);
+  --bf-bg-2:       oklch(0.205 0.006 70);
+  --bf-surface:    oklch(0.225 0.007 70);
+  --bf-surface-2:  oklch(0.245 0.007 70);
+  --bf-surface-3:  oklch(0.275 0.008 70);
+  --bf-sidebar:    oklch(0.205 0.006 70);
+  --bf-border:     oklch(0.305 0.008 70);
+  --bf-border-2:   oklch(0.275 0.007 70);
+  --bf-border-strong: oklch(0.38 0.01 70);
+
+  --bf-text:       oklch(0.93 0.005 75);
+  --bf-text-2:     oklch(0.74 0.008 72);
+  --bf-text-3:     oklch(0.60 0.009 72);
+  --bf-text-faint: oklch(0.50 0.009 70);
+
+  --bf-shadow-sm:  0 1px 2px oklch(0 0 0 / 0.3);
+  --bf-shadow-md:  0 6px 18px oklch(0 0 0 / 0.4), 0 1px 3px oklch(0 0 0 / 0.3);
+  --bf-shadow-lg:  0 18px 44px oklch(0 0 0 / 0.5), 0 4px 12px oklch(0 0 0 / 0.35);
+  --bf-shadow-pop: 0 22px 56px oklch(0 0 0 / 0.6), 0 6px 16px oklch(0 0 0 / 0.4);
+
+  --bf-good:       oklch(0.72 0.12 158);
+  --bf-good-soft:  oklch(0.32 0.05 158);
+  --bf-warn:       oklch(0.80 0.12 78);
+  --bf-warn-soft:  oklch(0.34 0.05 75);
+  --bf-danger:     oklch(0.70 0.15 28);
+  --bf-danger-soft:oklch(0.33 0.06 28);
+  --bf-info:       oklch(0.72 0.10 240);
+  --bf-info-soft:  oklch(0.32 0.05 240);
+}
+
+/* ─── Global base ─────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* critical: buttons inherit text color so they work on dark cards */
+  button { font-family: inherit; color: inherit; }
+
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    font-family: var(--font-sans);
+  }
+  body {
+    background: var(--bf-bg);
+    color: var(--bf-text);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  ::selection {
+    background: var(--bf-accent-soft);
+    color: var(--bf-accent-text);
+  }
+
+  /* scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--bf-border-strong) transparent;
+  }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb {
+    background: var(--bf-border-strong);
+    border-radius: 99px;
+    border: 3px solid var(--bf-bg);
+  }
+  *::-webkit-scrollbar-thumb:hover { background: var(--bf-text-faint); }
+  *::-webkit-scrollbar-track { background: transparent; }
+}
+
+/* ─── Animations ──────────────────────────────────────────── */
+@keyframes bf-fade    { from { opacity: 0; } }
+@keyframes bf-pop     { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+@keyframes bf-rise-up { from { transform: translateY(8px); } }
+@keyframes bf-slide-in{ from { opacity: 0; transform: translateX(12px); } }
+@keyframes bf-shine   {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Respect reduced-motion: near-zero durations jump elements to their
+   natural (non-keyframe) state so opacity-0 entrances never get stuck. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ─── Density modifiers ───────────────────────────────────── */
+[data-density="airy"]    { font-size: 14.5px; }
+[data-density="compact"] { font-size: 13px; }
+
+/* ─── Utility classes (used across components) ────────────── */
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+.eyebrow {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bf-text-faint);
+  white-space: nowrap;
+}
+/* ─── Component classes ────────────────────────────────────── */
+.bf-btn {
+  font-family: inherit; font-size: 13.5px; font-weight: 600;
+  letter-spacing: -0.01em;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 13px; border-radius: 8px;
+  border: 1px solid var(--bf-border);
+  background: var(--bf-surface); color: var(--bf-text); cursor: pointer;
+  transition: background .14s, border-color .14s, box-shadow .14s, transform .06s;
+  white-space: nowrap; user-select: none;
+}
+.bf-btn:hover { background: var(--bf-surface-3); border-color: var(--bf-border-strong); }
+.bf-btn:active { transform: translateY(0.5px); }
+.bf-btn:disabled { opacity: .5; cursor: not-allowed; }
+.bf-btn svg { width: 16px; height: 16px; }
+
+.bf-btn-primary {
+  background: var(--bf-accent); border-color: transparent;
+  color: var(--bf-on-accent); box-shadow: var(--bf-shadow-sm);
+}
+.bf-btn-primary:hover { background: var(--bf-accent-hover); }
+
+.bf-btn-ghost {
+  background: transparent; border-color: transparent; color: var(--bf-text-2);
+}
+.bf-btn-ghost:hover { background: var(--bf-surface-3); color: var(--bf-text); }
+
+.bf-btn-sm { padding: 5px 9px; font-size: 12.5px; border-radius: 6px; }
+.bf-btn-sm svg { width: 14px; height: 14px; }
+.bf-btn-icon { padding: 7px; }
+.bf-btn-icon svg { width: 16px; height: 16px; }
+
+.bf-card {
+  background: var(--bf-surface); border: 1px solid var(--bf-border);
+  border-radius: 15px; box-shadow: var(--bf-shadow-sm);
+}
+.bf-card-pad { padding: 24px; }
+
+.bf-input, .bf-select {
+  font-family: inherit; font-size: 13.5px; color: var(--bf-text);
+  background: var(--bf-surface); border: 1px solid var(--bf-border);
+  border-radius: 8px; padding: 8px 11px; width: 100%;
+  outline: none; transition: border-color .14s, box-shadow .14s;
+}
+.bf-input:focus, .bf-select:focus {
+  border-color: var(--bf-accent);
+  box-shadow: 0 0 0 3px var(--bf-accent-soft);
+}
+.bf-input::placeholder { color: var(--bf-text-faint); }
+
+.bf-field { display: block; }
+.bf-field > span {
+  display: block; font-size: 12px; font-weight: 600;
+  color: var(--bf-text-2); margin-bottom: 6px; letter-spacing: -0.01em;
+}
+
+.bf-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 500;
+  border: 1px solid var(--bf-border); color: var(--bf-text-2);
+  background: var(--bf-surface); cursor: pointer;
+  transition: all .14s; white-space: nowrap;
+}
+.bf-chip:hover { border-color: var(--bf-border-strong); color: var(--bf-text); }
+.bf-chip.active {
+  background: var(--bf-accent-soft);
+  border-color: var(--bf-accent-soft-bd);
+  color: var(--bf-accent-text);
+}
+
+.bf-kbd {
+  font-family: var(--font-mono); font-size: 11px; padding: 1px 5px;
+  border-radius: 5px; border: 1px solid var(--bf-border);
+  background: var(--bf-surface-2); color: var(--bf-text-3);
+}
+
+.bf-fade-in { animation: bf-fade .2s ease; }
+
+.bf-canvas-pad {
+  padding: 32px 40px 56px; max-width: 1400px; margin: 0 auto;
+}
+
+.bf-hoverlift {
+  transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+.bf-hoverlift:hover {
+  transform: translateY(-2px); box-shadow: var(--bf-shadow-md);
+  border-color: var(--bf-border-strong);
+}
+
+/* tables */
+.bf-tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.bf-tbl th {
+  text-align: left; font-weight: 600; color: var(--bf-text-3); font-size: 11.5px;
+  letter-spacing: 0.02em; text-transform: uppercase; padding: 10px 12px;
+  white-space: nowrap; border-bottom: 1px solid var(--bf-border);
+  position: sticky; top: 0; background: var(--bf-surface); z-index: 2;
+}
+.bf-tbl td { padding: 0; border-bottom: 1px solid var(--bf-border-2); white-space: nowrap; vertical-align: middle; }
+.bf-tbl td .cell { padding: 9px 12px; min-height: 40px; display: flex; align-items: center; gap: 7px; }
+.bf-tbl tbody tr { transition: background .1s; }
+.bf-tbl tbody tr:hover { background: var(--bf-surface-2); }
+
+/* progress track */
+.bf-track { height: 7px; border-radius: 99px; background: var(--bf-surface-3); overflow: hidden; }
+.bf-track > span { display: block; height: 100%; border-radius: 99px; background: var(--bf-accent); }
+
+.bf-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bf-surface-3) 25%,
+    var(--bf-surface-2) 37%,
+    var(--bf-surface-3) 63%
+  );
+  background-size: 400% 100%;
+  animation: bf-shine 1.4s ease infinite;
+  border-radius: 6px;
 }
