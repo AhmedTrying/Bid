@@ -2,11 +2,13 @@
 // 7 team members, 13 statuses). Run with `npm run db:seed` after the schema
 // has been pushed to Postgres (`npx prisma db push`).
 
+import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 import { TEAM, CLIENTS, STATUS, STAGES, SEED_OPPS } from '../src/lib/data'
 import { oppToDbData } from '../src/lib/db-map'
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
 
 async function main() {
   console.log('Seeding database…')

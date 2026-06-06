@@ -6,6 +6,7 @@
 // API routes switch to reading/writing the real database.
 
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 
 const url = process.env.DATABASE_URL ?? ''
 
@@ -15,7 +16,7 @@ export const dbEnabled = url.startsWith('postgres')
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
 export const prisma: PrismaClient | null = dbEnabled
-  ? (globalForPrisma.prisma ?? new PrismaClient())
+  ? (globalForPrisma.prisma ?? new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) }))
   : null
 
 if (dbEnabled && process.env.NODE_ENV !== 'production') {
