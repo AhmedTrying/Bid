@@ -48,3 +48,7 @@ next-env.d.ts
 prisma/*.db
 dev-server.log
 *.local.log
+
+# agent / assistant instruction files (kept local, not in repo)
+CLAUDE.md
+AGENTS.md
