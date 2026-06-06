@@ -43,6 +43,9 @@ function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('bf:quickadd', h)
   }, [])
 
+  // Hydrate opportunities from the API (real DB when configured, else seed data)
+  useEffect(() => { useStore.getState().hydrate() }, [])
+
   return (
     <div
       data-density={density}

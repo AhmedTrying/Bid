@@ -38,11 +38,32 @@ interface AppState {
   updateOpp: (id: string, patch: Partial<Opportunity>) => void
   moveStage: (id: string, stage: Stage) => void
   addOpp: (data: Partial<Opportunity>) => Opportunity
+  hydrate: () => Promise<void>
   flash: (msg: string) => void
   clearToast: () => void
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+// ── Write-through helpers (fire-and-forget; no-op on the server) ──────────────
+// When a Postgres DB is configured the API persists; otherwise it's a harmless
+// no-op and the optimistic Zustand update is the only state.
+function persistPatch(id: string, patch: Partial<Opportunity>) {
+  if (typeof window === 'undefined') return
+  fetch(`/api/opportunities/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  }).catch(() => {})
+}
+function persistCreate(opp: Opportunity) {
+  if (typeof window === 'undefined') return
+  fetch('/api/opportunities', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(opp),
+  }).catch(() => {})
+}
 
 export const useStore = create<AppState>()(
   persist(
@@ -61,25 +82,25 @@ export const useStore = create<AppState>()(
       setCardStyle: (cardStyle) => set({ cardStyle }),
       setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
 
-      updateOpp: (id, patch) =>
+      updateOpp: (id, patch) => {
         set(state => ({
           opps: state.opps.map(o =>
             o.id === id ? { ...o, ...patch, updated: TODAY } : o
           ),
-        })),
+        }))
+        persistPatch(id, patch)
+      },
 
-      moveStage: (id, stage) =>
+      moveStage: (id, stage) => {
+        const current = get().opps.find(o => o.id === id)
+        if (!current) return
+        const keepStatus = STATUS[current.status] && STATUS[current.status].stage === stage
+        const status = keepStatus ? current.status : STAGE_STATUS[stage]
         set(state => ({
-          opps: state.opps.map(o => {
-            if (o.id !== id) return o
-            const keepStatus = STATUS[o.status] && STATUS[o.status].stage === stage
-            return {
-              ...o,
-              status: keepStatus ? o.status : STAGE_STATUS[stage],
-              updated: TODAY,
-            }
-          }),
-        })),
+          opps: state.opps.map(o => o.id === id ? { ...o, status, updated: TODAY } : o),
+        }))
+        if (status !== current.status) persistPatch(id, { status })
+      },
 
       addOpp: (data) => {
         const id = 'o' + Date.now()
@@ -116,7 +137,20 @@ export const useStore = create<AppState>()(
           ...data,
         }
         set(state => ({ opps: [o, ...state.opps] }))
+        persistCreate(o)
         return o
+      },
+
+      hydrate: async () => {
+        if (typeof window === 'undefined') return
+        try {
+          const res = await fetch('/api/opportunities')
+          if (!res.ok) return
+          const json = await res.json() as { opps?: Opportunity[] }
+          if (json.opps && json.opps.length) set({ opps: json.opps })
+        } catch {
+          /* offline / no API — keep seeded data */
+        }
       },
 
       flash: (msg) => {

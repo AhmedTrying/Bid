@@ -103,36 +103,45 @@ const RAW_OPPS: Omit<Opportunity, 'followUps' | 'documents' | 'activity'>[] = [
   { id:'o22', ref:'SATCO-2026-0083', title:'Aldar Reem — Podium & Basement Structure',              client:'aldar',portal:'In-Tend',     type:'Bid', cls:'Civil Works',       proc:'Open Tender',  status:'Cancelled',       priority:'Low',      owner:'pm', reviewer:'lh', rfpReceived:'2026-02-15', siteVisit:'2026-02-26', qDeadline:'2026-03-06', bidDue:'2026-03-25', submission:'', followUp:'', bondPct:0,   bondValidity:'',           bondReq:false, result:'Cancelled', value:0,  updated:'2026-03-20', notes:'Tender cancelled by client — scope under redesign.', checklist:null },
 ]
 
+// Follow-ups, documents and activity are presentation content derived from an
+// opportunity's core fields. Kept as a shared function so the seed data and the
+// database-read path (src/lib/db-map.ts) produce identical detail-page content.
+export function synthExtras(o: Pick<Opportunity,
+  'status' | 'submission' | 'bidDue' | 'followUp' | 'bondReq' | 'owner' | 'rfpReceived'
+>): Pick<Opportunity, 'followUps' | 'documents' | 'activity'> {
+  const followUps: Opportunity['followUps'] = []
+  if (['Submitted', 'Negotiation', 'Awarded'].includes(o.status)) {
+    followUps.push({ n: 1, date: o.submission || o.bidDue, label: 'Submission confirmed', done: true })
+    followUps.push({ n: 2, date: '2026-05-25', label: 'Acknowledgement received', done: true })
+    if (o.status === 'Negotiation' || o.status === 'Awarded')
+      followUps.push({ n: 3, date: '2026-06-02', label: o.status === 'Awarded' ? 'Letter of Award' : 'Clarification meeting', done: true })
+    followUps.push({ n: 4, date: o.followUp || '', label: o.status === 'Awarded' ? 'Handover to operations' : 'Next follow-up due', done: o.status === 'Awarded' })
+  }
+
+  const documents: Opportunity['documents'] = [
+    { name: 'RFP / Tender Package', type: 'folder', meta: '12 files · SharePoint' },
+    { name: 'Drawings & BOQ',       type: 'sheet',  meta: 'updated 2 days ago' },
+    { name: 'Commercial Build-up',  type: 'sheet',  meta: o.bondReq ? 'draft' : '—' },
+    { name: 'Submission Pack',      type: 'pdf',    meta: o.submission ? 'final' : 'not started' },
+  ]
+
+  const activity: Opportunity['activity'] = [
+    { who: 'sn', verb: 'updated the Bid Due date',          when: '2 days ago' },
+    { who: o.owner || 'lh', verb: `changed status to ${o.status}`, when: '3 days ago' },
+    { who: 'dr', verb: 'linked the tender package folder',  when: '5 days ago' },
+    { who: 'lh', verb: 'created this opportunity',          when: o.rfpReceived },
+  ]
+
+  return { followUps, documents, activity }
+}
+
 function buildOpps(): Opportunity[] {
-  return RAW_OPPS.map(o => {
-    const followUps: Opportunity['followUps'] = []
-    if (['Submitted', 'Negotiation', 'Awarded'].includes(o.status)) {
-      followUps.push({ n: 1, date: o.submission || o.bidDue, label: 'Submission confirmed', done: true })
-      followUps.push({ n: 2, date: '2026-05-25', label: 'Acknowledgement received', done: true })
-      if (o.status === 'Negotiation' || o.status === 'Awarded')
-        followUps.push({ n: 3, date: '2026-06-02', label: o.status === 'Awarded' ? 'Letter of Award' : 'Clarification meeting', done: true })
-      followUps.push({ n: 4, date: o.followUp || '', label: o.status === 'Awarded' ? 'Handover to operations' : 'Next follow-up due', done: o.status === 'Awarded' })
-    }
-
-    const documents: Opportunity['documents'] = [
-      { name: 'RFP / Tender Package', type: 'folder', meta: '12 files · SharePoint' },
-      { name: 'Drawings & BOQ',       type: 'sheet',  meta: 'updated 2 days ago' },
-      { name: 'Commercial Build-up',  type: 'sheet',  meta: o.bondReq ? 'draft' : '—' },
-      { name: 'Submission Pack',      type: 'pdf',    meta: o.submission ? 'final' : 'not started' },
-    ]
-
-    const activity: Opportunity['activity'] = [
-      { who: 'sn', verb: 'updated the Bid Due date',          when: '2 days ago' },
-      { who: o.owner || 'lh', verb: `changed status to ${o.status}`, when: '3 days ago' },
-      { who: 'dr', verb: 'linked the tender package folder',  when: '5 days ago' },
-      { who: 'lh', verb: 'created this opportunity',          when: o.rfpReceived },
-    ]
-
-    return { ...o, followUps, documents, activity }
-  })
+  return RAW_OPPS.map(o => ({ ...o, ...synthExtras(o) }))
 }
 
 export const OPPS: Opportunity[] = buildOpps()
+// Core scalar rows (no synthesized extras) — used by the database seed script.
+export const SEED_OPPS = RAW_OPPS
 
 export const byId = (id: string) => TEAM.find(t => t.id === id)
 export const byClient = (id: string) => CLIENTS.find(c => c.id === id)
