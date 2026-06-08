@@ -72,6 +72,7 @@ export default function OpportunityDetailPage() {
   const flash     = useStore(s => s.flash)
   const clients   = useStore(s => s.clients)
   const options   = useStore(s => s.options)
+  const changes   = useStore(s => s.changes)
 
   const o = opps.find(x => x.id === id)
 
@@ -90,6 +91,10 @@ export default function OpportunityDetailPage() {
   const due    = relDue(o.bidDue)
   const health = computeHealth(o)
   const bondT  = toneStyle(80, theme)
+  // Real change-history timeline for this opportunity (Feature 2).
+  const oppChanges = changes
+    .filter(c => c.oppId === o.id)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
 
   // ── inline-edit helpers ──────────────────────────────────────────────────
   const upd = (patch: Partial<Opportunity>) => updateOpp(o.id, patch)
@@ -126,7 +131,7 @@ export default function OpportunityDetailPage() {
     { label: 'Mark Submitted',       icon: 'sent',    on: () => { updateOpp(o.id, { status: 'Submitted', submission: TODAY } as OppPatch); flash('Marked as Submitted') } },
     { label: 'Move to Negotiation',  icon: 'refresh', on: () => setStatus('Negotiation') },
     { label: 'Mark Awarded',         icon: 'trophy',  on: () => { updateOpp(o.id, { status: 'Awarded', result: 'Awarded' } as OppPatch); flash('Marked as Awarded') } },
-    { label: 'Mark Closed / Lost',   icon: 'closed',  on: () => { updateOpp(o.id, { status: 'Closed Lost', result: 'Lost' } as OppPatch); flash('Marked as Closed / Lost') } },
+    { label: 'Mark Closed / Lost',   icon: 'closed',  on: () => updateOpp(o.id, { status: 'Closed Lost', result: 'Lost' } as OppPatch) },
   ]
 
   const reminders = [
@@ -208,7 +213,7 @@ export default function OpportunityDetailPage() {
               <EditableField label="Status" type="select" value={o.status} options={statusOpts} onCommit={v => upd({ status: v as StatusKey })} />
               <EditableField label="Owner" type="select" value={o.owner} options={personOpts} display={byId(o.owner)?.name ?? 'Unassigned'} onCommit={v => upd({ owner: v })} />
               <EditableField label="Reviewer" type="select" value={o.reviewer} options={personOpts} display={byId(o.reviewer)?.name ?? '—'} onCommit={v => upd({ reviewer: v })} />
-              <EditableField label="Est. value (AED)" type="number" value={o.value ? String(o.value) : ''} mono display={money(o.value)} onCommit={v => upd({ value: Number(v) || 0 })} />
+              <EditableField label="Est. value (SAR)" type="number" value={o.value ? String(o.value) : ''} mono display={money(o.value)} onCommit={v => upd({ value: Number(v) || 0 })} />
               <EditableField label="Contract duration" value={o.contractDuration} placeholder="e.g. 26 months" onCommit={v => upd({ contractDuration: v })} />
               <EditableField label="Partner involved" type="select" value={o.partnerInvolved ? 'yes' : 'no'} options={boolOpts} display={o.partnerInvolved ? 'Yes' : 'No'} onCommit={v => upd({ partnerInvolved: v === 'yes' })} />
               {o.partnerInvolved && (
@@ -310,19 +315,26 @@ export default function OpportunityDetailPage() {
             </div>
           </Section>
 
-          <Section icon="clock" title="Activity Log" last>
-            <div style={{ display: 'grid', gap: 1 }}>
-              {o.activity.map((a, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px', borderBottom: i < o.activity.length - 1 ? '1px solid var(--bf-border-2)' : 'none' }}>
-                  <Avatar person={a.who} size={22} theme={theme} />
-                  <span style={{ fontSize: 13 }}>
-                    <strong style={{ fontWeight: 650 }}>{byId(a.who)?.name ?? 'System'}</strong>{' '}
-                    <span style={{ color: 'var(--bf-text-2)' }}>{a.verb}</span>
-                  </span>
-                  <span style={{ fontSize: 11.5, color: 'var(--bf-text-faint)', marginLeft: 'auto' }}>{a.when}</span>
+          <Section icon="clock" title="Activity & Changes" hint="recorded automatically" last>
+            {oppChanges.length === 0
+              ? <div style={{ fontSize: 13, color: 'var(--bf-text-2)' }}>No recorded changes yet. Edits to this opportunity will appear here.</div>
+              : (
+                <div style={{ display: 'grid', gap: 1 }}>
+                  {oppChanges.map((c, i) => (
+                    <div key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '8px 4px', borderBottom: i < oppChanges.length - 1 ? '1px solid var(--bf-border-2)' : 'none' }}>
+                      <Avatar person={c.userId} size={22} theme={theme} />
+                      <span style={{ fontSize: 13, flex: 1 }}>
+                        <span style={{ color: 'var(--bf-text-2)' }}>{c.readableSummary}</span>
+                        {c.importance === 'major' && (
+                          <span style={{ marginLeft: 6, fontSize: 10.5, padding: '1px 6px', borderRadius: 99, background: 'var(--bf-warn-soft)', color: 'var(--bf-warn)' }}>important</span>
+                        )}
+                      </span>
+                      <span className="mono" style={{ fontSize: 11.5, color: 'var(--bf-text-faint)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>{fmtDate(c.createdAt.slice(0, 10), { year: true })}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )
+            }
           </Section>
         </div>
       </div>

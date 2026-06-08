@@ -32,12 +32,26 @@ export interface PriorityMeta {
   rank: number
 }
 
+// Notification team groups (Feature 3).
+export type TeamGroup =
+  | 'BD Team' | 'Proposal Team' | 'Commercial Team'
+  | 'Finance Team' | 'Management' | 'Admins'
+
+// Permission-role keys (Fix 2 / Phase 6).
+export type RoleKey =
+  | 'admin' | 'bd_manager' | 'proposal_manager' | 'tender_coordinator'
+  | 'document_controller' | 'commercial_manager' | 'finance'
+  | 'management_viewer' | 'reviewer'
+
 export interface TeamMember {
   id: string
   name: string
-  role: string
+  role: string            // display title, e.g. "BD Manager"
   init: string
   hue: number
+  email?: string
+  group?: TeamGroup
+  roleKey?: RoleKey
 }
 
 export interface Client {
@@ -131,10 +145,67 @@ export interface Opportunity {
   value: number
   updated: string
   notes: string
+  // Closed/Lost reason (Fix 3) — real stored values, never random.
+  closedReasonCategory: string
+  closedReasonNotes: string
+  closedBy: string          // team member id
+  closedAt: string          // 'YYYY-MM-DD'
+  archivedAt: string        // 'YYYY-MM-DD'
+  followUpTwo: string       // 'YYYY-MM-DD' (template col "FOLLOW-UP DATE (THREE)")
   checklist: Record<string, boolean> | null
   followUps: FollowUp[]
   documents: Document[]
   activity: ActivityEntry[]
+}
+
+// ── Change History / audit trail (Feature 2) ──────────────────────────────────
+export type ChangeSource = 'dashboard' | 'excel_import' | 'excel_export' | 'system'
+export type ChangeImportance = 'normal' | 'major'
+export type EmailStatus = '' | 'sent' | 'sent_demo' | 'failed' | 'skipped'
+export type ExcelStatus = '' | 'ready' | 'exported' | 'pending' | 'failed'
+
+export interface ChangeEvent {
+  id: string
+  userId: string
+  userName: string
+  userInitials: string
+  actionType: string        // status_changed | field_edited | created | deleted | excel_export | …
+  oppId: string | null
+  oppRef: string
+  oppTitle: string
+  fieldChanged: string
+  oldValue: string
+  newValue: string
+  source: ChangeSource
+  importance: ChangeImportance
+  excelStatus: ExcelStatus
+  emailStatus: EmailStatus
+  recipients: string[]
+  recipientsSummary: string
+  userNote: string
+  readableSummary: string
+  createdAt: string         // ISO timestamp
+}
+
+// ── Saved Views (Fix 1) ───────────────────────────────────────────────────────
+export interface SavedViewConfig {
+  view?: string
+  q?: string
+  statusFilter?: string
+  groupBy?: string
+  sortKey?: string
+  sortDir?: 'asc' | 'desc'
+  hidden?: Record<string, boolean>
+}
+
+export interface SavedView {
+  id: string
+  userId: string
+  route: string
+  name: string
+  config: SavedViewConfig
+  isShared: boolean
+  order: number
 }
 
 export interface Reminder {

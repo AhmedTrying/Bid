@@ -42,10 +42,28 @@ model User {
   email     String  @unique
   roleTitle String
   access    Role    @default(CONTRIBUTOR)
+  // Real auth + RBAC (Phase 6). `role` is a permission-role key (admin, bd_manager,
+  // proposal_manager, tender_coordinator, document_controller, commercial_manager,
+  // finance, management_viewer, reviewer). `group` is a notification team group.
+  role         String   @default("bd_manager")
+  group        String   @default("")
+  passwordHash String   @default("")
+  active       Boolean  @default(true)
+  lastLogin    DateTime?
   avatarHue Int     @default(250)
   initials  String  @default("")
   ownedOpps    Opportunity[] @relation("owner")
   reviewedOpps Opportunity[] @relation("reviewer")
+  sessions     Session[]
+  createdAt DateTime @default(now())
+}
+
+// httpOnly cookie session (Phase 6 auth). Revocable by deleting the row.
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
   createdAt DateTime @default(now())
 }
 
@@ -112,6 +130,15 @@ model Opportunity {
   estValue      Float    @default(0)
   notes         String   @default("")
 
+  // Closed/Lost reason (Fix 3) — real stored reason, never random.
+  closedReasonCategory String?
+  closedReasonNotes    String   @default("")
+  closedById           String?
+  closedAt             DateTime?
+  archivedAt           DateTime?
+  // Second follow-up date (template "FOLLOW-UP DATE (THREE)" column).
+  followUpTwo          DateTime?
+
   checklist     String?  // JSON string
   documents     Document[]
   followUps     FollowUp[]
@@ -152,11 +179,90 @@ model ActivityLog {
   opp       Opportunity @relation(fields: [oppId], references: [id], onDelete: Cascade)
 }
 
+// Saved table/board views (Fix 1) — persisted per user, scoped to a page route.
 model SavedView {
-  id     String @id @default(cuid())
-  userId String
-  name   String
-  config String // JSON
+  id       String  @id @default(cuid())
+  userId   String
+  route    String  @default("/opportunities") // which page the view belongs to
+  name     String
+  config   String  // JSON: filters / sort / grouping / hidden columns
+  isShared Boolean @default(false)
+  order    Int     @default(0)
+  createdAt DateTime @default(now())
+}
+
+// Change History / audit trail (Feature 2). One row per recorded action.
+model ChangeEvent {
+  id               String   @id @default(cuid())
+  userId           String   @default("")
+  userName         String   @default("")
+  userInitials     String   @default("")
+  actionType       String   // status_changed | field_edited | created | deleted | excel_export | …
+  oppId            String?
+  oppRef           String   @default("")
+  oppTitle         String   @default("")
+  fieldChanged     String   @default("")
+  oldValue         String   @default("")
+  newValue         String   @default("")
+  source           String   @default("dashboard") // dashboard | excel_import | excel_export | system
+  importance       String   @default("normal")    // normal | major
+  excelStatus      String   @default("")           // ready | exported | pending | failed | ''
+  emailStatus      String   @default("")           // '' | sent | sent_demo | failed | skipped
+  recipients       String   @default("")           // JSON array of recipient ids
+  recipientsSummary String  @default("")
+  userNote         String   @default("")
+  readableSummary  String   @default("")
+  createdAt        DateTime @default(now())
+
+  @@index([oppId])
+  @@index([createdAt])
+}
+
+// Notification rules (Feature 3) — which field changes are "major" + email policy.
+model NotificationRule {
+  id              String  @id @default(cuid())
+  field           String  @unique // field key or transition key
+  label           String  @default("")
+  isMajor         Boolean @default(true)
+  allowSkipEmail  Boolean @default(false)
+  createdAt       DateTime @default(now())
+}
+
+// Notification events (Feature 3) — log of emails sent/simulated.
+model NotificationEvent {
+  id               String   @id @default(cuid())
+  changeId         String?
+  oppId            String?
+  subject          String   @default("")
+  recipients       String   @default("") // JSON
+  recipientsSummary String  @default("")
+  status           String   @default("sent_demo") // sent | sent_demo | failed
+  note             String   @default("")
+  createdAt        DateTime @default(now())
+}
+
+// Excel import runs (Feature 1).
+model ExcelImport {
+  id          String   @id @default(cuid())
+  fileName    String   @default("")
+  rowsAdded   Int      @default(0)
+  rowsUpdated Int      @default(0)
+  warnings    Int      @default(0)
+  failed      Int      @default(0)
+  status      String   @default("completed") // completed | needs_review | failed
+  errors      String   @default("")          // JSON array of {sheet,row,message}
+  byUserId    String   @default("")
+  createdAt   DateTime @default(now())
+}
+
+// Excel export runs (Feature 1).
+model ExcelExport {
+  id        String   @id @default(cuid())
+  fileName  String   @default("")
+  rows      Int      @default(0)
+  status    String   @default("exported") // exported | failed
+  byUserId  String   @default("")
+  createdAt DateTime @default(now())
 }
 
 // Generic editable dropdown lists (portals, classifications, procurement

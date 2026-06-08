@@ -201,7 +201,7 @@ export function QuickAddModal({ onClose }: QuickAddModalProps) {
             <Select label="Owner" value={f.owner} onChange={v => set('owner', v)}
               options={TEAM.map(t => ({ value: t.id, label: t.name }))} />
             <label className="bf-field">
-              <span>Est. value (AED)</span>
+              <span>Est. value (SAR)</span>
               <input className="bf-input" type="number" value={f.value} onChange={e => set('value', e.target.value)} placeholder="0" />
             </label>
             <label className="bf-field" style={{ gridColumn: '1 / -1' }}>

@@ -51,13 +51,16 @@ export function relDue(s: string): RelDue {
   return { n, label: `Due in ${n}d`, tone: 'none' }
 }
 
+// Currency is SAR everywhere (style: "SAR 5,000,000"). Excel export mirrors this.
+export const CURRENCY = 'SAR'
+
 export function money(v: number, compact?: boolean): string {
   if (!v) return '—'
   if (compact) {
-    if (v >= 1e6) return 'AED ' + (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + 'M'
-    if (v >= 1e3) return 'AED ' + (v / 1e3).toFixed(0) + 'K'
+    if (v >= 1e6) return CURRENCY + ' ' + (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + 'M'
+    if (v >= 1e3) return CURRENCY + ' ' + (v / 1e3).toFixed(0) + 'K'
   }
-  return 'AED ' + v.toLocaleString('en-US')
+  return CURRENCY + ' ' + v.toLocaleString('en-US')
 }
 
 export function toneStyle(hue: number, theme: 'light' | 'dark'): ToneStyle {

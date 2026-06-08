@@ -4,9 +4,13 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type {
   Opportunity, Theme, Accent, Density, CardStyle, StatusKey, Stage,
-  Client, ListOption, CalendarItem, Document,
+  Client, ListOption, CalendarItem, Document, TeamMember, ChangeEvent,
 } from './types'
-import { OPPS, STATUS, TODAY, CLIENTS, OPTIONS, setClientRegistry } from './data'
+import {
+  OPPS, STATUS, TODAY, CLIENTS, OPTIONS, TEAM, SEED_CHANGES,
+  CLOSING_STATUSES, setClientRegistry,
+} from './data'
+import { diffOpp, recordCreated, recordDeleted } from './changeHistoryService'
 
 // Map stage → default status when dragging into it
 const STAGE_STATUS: Record<Stage, StatusKey> = {
@@ -33,8 +37,16 @@ interface AppState {
   clients: Client[]
   options: ListOption[]
   reminders: CalendarItem[]
+  // current signed-in user (Phase 6 replaces the seeded default via /api/auth/me)
+  currentUser: TeamMember
+  // change history / audit trail (Feature 2)
+  changes: ChangeEvent[]
+  // a status change into a closing status, paused until a reason is captured (Fix 3)
+  pendingClose: { id: string; patch: Partial<Opportunity> } | null
   // toast
   toast: string | null
+  // session actions
+  setCurrentUser: (u: TeamMember) => void
   // appearance actions
   setTheme: (t: Theme) => void
   setAccent: (a: Accent) => void
@@ -42,10 +54,16 @@ interface AppState {
   setCardStyle: (c: CardStyle) => void
   setSidebarCollapsed: (v: boolean) => void
   // opportunity actions
+  applyOpp: (id: string, patch: Partial<Opportunity>) => void  // internal: commit + record
   updateOpp: (id: string, patch: Partial<Opportunity>) => void
   moveStage: (id: string, stage: Stage) => void
   addOpp: (data: Partial<Opportunity>) => Opportunity
   deleteOpp: (id: string) => void
+  // closed/lost reason flow (Fix 3)
+  confirmClose: (category: string, notes: string) => void
+  cancelClose: () => void
+  // change history (Feature 2)
+  recordChange: (e: ChangeEvent | ChangeEvent[]) => void
   // client actions
   addClient: (data: Partial<Client>) => Client
   updateClient: (id: string, patch: Partial<Client>) => void
@@ -98,7 +116,12 @@ export const useStore = create<AppState>()(
       clients: CLIENTS.map(c => ({ ...c })),
       options: OPTIONS.map(o => ({ ...o })),
       reminders: [],
+      currentUser: TEAM[0], // seeded default (Layla Haddad) until login wires a real user
+      changes: SEED_CHANGES.map(c => ({ ...c })),
+      pendingClose: null,
       toast: null,
+
+      setCurrentUser: (currentUser) => set({ currentUser }),
 
       setTheme: (theme) => set({ theme }),
       setAccent: (accent) => set({ accent }),
@@ -106,14 +129,44 @@ export const useStore = create<AppState>()(
       setCardStyle: (cardStyle) => set({ cardStyle }),
       setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
 
+      // ── Change history (Feature 2) ────────────────────────────────────────
+      recordChange: (e) => {
+        const list = Array.isArray(e) ? e : [e]
+        if (!list.length) return
+        set(state => ({ changes: [...list, ...state.changes] }))
+        api('/api/change-history', 'POST', list.length === 1 ? list[0] : { changes: list })
+      },
+
       // ── Opportunities ─────────────────────────────────────────────────────
-      updateOpp: (id, patch) => {
+      // Commit a patch to an opportunity, persist it, and record the diff in
+      // change history. (Internal — `updateOpp` may pause for a reason first.)
+      applyOpp: (id: string, patch: Partial<Opportunity>) => {
+        const prev = get().opps.find(o => o.id === id)
         set(state => ({
-          opps: state.opps.map(o =>
-            o.id === id ? { ...o, ...patch, updated: TODAY } : o
-          ),
+          opps: state.opps.map(o => o.id === id ? { ...o, ...patch, updated: TODAY } : o),
         }))
         api(`/api/opportunities/${id}`, 'PATCH', patch)
+        if (prev) {
+          const u = get().currentUser
+          get().recordChange(diffOpp(prev, patch, { user: u }))
+        }
+      },
+
+      updateOpp: (id, patch) => {
+        const prev = get().opps.find(o => o.id === id)
+        // Closed/Lost reason gate (Fix 3): a status change into a closing status
+        // pauses until the user supplies a reason — unless one is already set or
+        // the patch itself carries the reason.
+        if (
+          prev && patch.status && CLOSING_STATUSES.includes(patch.status as StatusKey) &&
+          patch.status !== prev.status &&
+          !patch.closedReasonCategory && !prev.closedReasonCategory
+        ) {
+          set({ pendingClose: { id, patch } })
+          if (typeof window !== 'undefined') document.dispatchEvent(new CustomEvent('bf:closereason'))
+          return
+        }
+        get().applyOpp(id, patch)
       },
 
       moveStage: (id, stage) => {
@@ -121,11 +174,27 @@ export const useStore = create<AppState>()(
         if (!current) return
         const keepStatus = STATUS[current.status] && STATUS[current.status].stage === stage
         const status = keepStatus ? current.status : STAGE_STATUS[stage]
-        set(state => ({
-          opps: state.opps.map(o => o.id === id ? { ...o, status, updated: TODAY } : o),
-        }))
-        if (status !== current.status) api(`/api/opportunities/${id}`, 'PATCH', { status })
+        if (status === current.status) return
+        // Route through updateOpp so the closed-reason gate + history recording apply.
+        get().updateOpp(id, { status })
       },
+
+      // ── Closed/Lost reason flow (Fix 3) ───────────────────────────────────
+      confirmClose: (category, notes) => {
+        const pending = get().pendingClose
+        if (!pending) return
+        const u = get().currentUser
+        const fullPatch: Partial<Opportunity> = {
+          ...pending.patch,
+          closedReasonCategory: category,
+          closedReasonNotes: notes,
+          closedBy: u.id,
+          closedAt: TODAY,
+        }
+        set({ pendingClose: null })
+        get().applyOpp(pending.id, fullPatch)
+      },
+      cancelClose: () => set({ pendingClose: null }),
 
       addOpp: (data) => {
         const id = uid('o')
@@ -140,7 +209,10 @@ export const useStore = create<AppState>()(
           qDeadline: '', qDeadlineTime: '', bidDue: '', bidDueTime: '',
           submission: '', followUp: '',
           bondPct: 0, bondValidity: '', bondValidityDays: null, bondReq: false,
-          result: '', value: 0, updated: TODAY, notes: '', checklist: null,
+          result: '', value: 0, updated: TODAY, notes: '',
+          closedReasonCategory: '', closedReasonNotes: '', closedBy: '', closedAt: '',
+          archivedAt: '', followUpTwo: '',
+          checklist: null,
           followUps: [], documents: [],
           activity: [{ who: 'lh', verb: 'created this opportunity', when: 'just now' }],
         }
@@ -153,15 +225,18 @@ export const useStore = create<AppState>()(
         }
         set(state => ({ opps: [o, ...state.opps] }))
         api('/api/opportunities', 'POST', o)
+        get().recordChange(recordCreated(o, { user: get().currentUser }))
         return o
       },
 
       deleteOpp: (id) => {
+        const prev = get().opps.find(o => o.id === id)
         set(state => ({
           opps: state.opps.filter(o => o.id !== id),
           reminders: state.reminders.filter(r => r.oppId !== id),
         }))
         api(`/api/opportunities/${id}`, 'DELETE')
+        if (prev) get().recordChange(recordDeleted(prev, { user: get().currentUser }))
       },
 
       // ── Clients ───────────────────────────────────────────────────────────
@@ -259,11 +334,12 @@ export const useStore = create<AppState>()(
       hydrate: async () => {
         if (typeof window === 'undefined') return
         try {
-          const [oppsRes, clientsRes, optionsRes, remindersRes] = await Promise.all([
+          const [oppsRes, clientsRes, optionsRes, remindersRes, changesRes] = await Promise.all([
             fetch('/api/opportunities'),
             fetch('/api/clients'),
             fetch('/api/options'),
             fetch('/api/reminders'),
+            fetch('/api/change-history'),
           ])
           if (oppsRes.ok) {
             const j = await oppsRes.json() as { opps?: Opportunity[] }
@@ -280,6 +356,10 @@ export const useStore = create<AppState>()(
           if (remindersRes.ok) {
             const j = await remindersRes.json() as { reminders?: CalendarItem[] }
             if (j.reminders && j.reminders.length) set({ reminders: j.reminders })
+          }
+          if (changesRes.ok) {
+            const j = await changesRes.json() as { changes?: ChangeEvent[] }
+            if (j.changes && j.changes.length) set({ changes: j.changes })
           }
         } catch {
           /* offline / no API — keep seeded data */

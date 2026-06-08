@@ -5,22 +5,26 @@
 import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
-import { TEAM, CLIENTS, STATUS, STAGES, SEED_OPPS, OPPS, buildOptionSeed } from '../src/lib/data'
-import { oppToDbData } from '../src/lib/db-map'
+import { TEAM, CLIENTS, STATUS, STAGES, SEED_OPPS, OPPS, SEED_CHANGES, buildOptionSeed } from '../src/lib/data'
+import { oppToDbData, changeToDbData } from '../src/lib/db-map'
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
 
 async function main() {
   console.log('Seeding database…')
 
-  // Team members → User
+  // Team members → User. Password hashing is wired in Phase 6 (authService);
+  // for now seed role/group/email so RBAC + recipient groups work.
   for (const t of TEAM) {
+    const email = t.email ?? `${t.id}@satco.example`
+    const role = t.roleKey ?? 'bd_manager'
+    const group = t.group ?? ''
     await prisma.user.upsert({
       where: { id: t.id },
-      update: { name: t.name, roleTitle: t.role, avatarHue: t.hue, initials: t.init },
+      update: { name: t.name, roleTitle: t.role, avatarHue: t.hue, initials: t.init, email, role, group },
       create: {
-        id: t.id, name: t.name, email: `${t.id}@satco.example`,
-        roleTitle: t.role, avatarHue: t.hue, initials: t.init,
+        id: t.id, name: t.name, email,
+        roleTitle: t.role, avatarHue: t.hue, initials: t.init, role, group,
       },
     })
   }
@@ -98,6 +102,17 @@ async function main() {
     })
   }
   console.log(`  ✓ ${reminders.length} reminders`)
+
+  // Change-history events (audit trail) — idempotent on id
+  for (const c of SEED_CHANGES) {
+    const data = changeToDbData(c)
+    await prisma.changeEvent.upsert({
+      where: { id: c.id },
+      update: data,
+      create: data as never,
+    })
+  }
+  console.log(`  ✓ ${SEED_CHANGES.length} change events`)
   console.log('Done.')
 }
 

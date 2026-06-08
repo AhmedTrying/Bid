@@ -14,13 +14,6 @@ export default function ClosedPage() {
 
   const items = opps.filter(o => ['Closed Lost','Cancelled','No-Go','Postponed'].includes(o.status))
 
-  const reasonFor = (o: typeof items[0]) =>
-    o.status === 'Postponed'  ? 'Client postponed' :
-    o.status === 'Cancelled'  ? 'Tender cancelled' :
-    o.notes.includes('price') ? 'Price (commercial)' :
-    o.notes.toLowerCase().includes('technical') ? 'Technical non-compliance' :
-    'Commercial'
-
   return (
     <div className="bf-canvas-pad" style={{ animation: 'bf-rise-up .4s cubic-bezier(.2,.8,.2,1)' }}>
       <div style={{ marginBottom: 20 }}>
@@ -62,9 +55,18 @@ export default function ClosedPage() {
                   <span style={{ fontSize: 12, color: 'var(--bf-text-2)' }}>Closed {fmtDate(o.updated, { year: true })}</span>
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
+              <div style={{ textAlign: 'right', maxWidth: 220 }}>
                 <div className="eyebrow" style={{ marginBottom: 3 }}>Reason</div>
-                <span style={{ fontSize: 11.5, padding: '2px 9px', borderRadius: 99, background: 'var(--bf-surface-3)', color: 'var(--bf-text-2)' }}>{reasonFor(o)}</span>
+                {o.closedReasonCategory ? (
+                  <span title={o.closedReasonNotes || undefined}
+                    style={{ fontSize: 11.5, padding: '2px 9px', borderRadius: 99, background: 'var(--bf-surface-3)', color: 'var(--bf-text-2)', display: 'inline-block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>
+                    {o.closedReasonCategory}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 11.5, padding: '2px 9px', borderRadius: 99, background: 'var(--bf-warn-soft)', color: 'var(--bf-warn)', fontWeight: 600 }}>
+                    Reason required
+                  </span>
+                )}
               </div>
               {isPostponed && reopen !== null && reopen > 0 && (
                 <span style={{ fontSize: 11.5, padding: '2px 9px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bf-warn-soft)', color: 'var(--bf-warn)', fontWeight: 600 }}>

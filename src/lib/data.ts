@@ -3,7 +3,8 @@
 
 import type {
   StatusKey, Stage, StatusMeta, PriorityMeta,
-  TeamMember, Client, Opportunity, ListOption, ReminderType,
+  TeamMember, TeamGroup, Client, Opportunity, ListOption, ReminderType,
+  ChangeEvent,
 } from './types'
 
 export const TODAY = '2026-06-04'
@@ -37,14 +38,30 @@ export const PRIORITY: Record<string, PriorityMeta> = {
 }
 
 export const TEAM: TeamMember[] = [
-  { id: 'lh', name: 'Layla Haddad',  role: 'BD Manager',          init: 'LH', hue: 8 },
-  { id: 'ok', name: 'Omar Khalil',   role: 'Proposal Manager',    init: 'OK', hue: 250 },
-  { id: 'sn', name: 'Sara Nasser',   role: 'Tender Coordinator',  init: 'SN', hue: 175 },
-  { id: 'dr', name: 'Daniel Roa',    role: 'Document Controller', init: 'DR', hue: 300 },
-  { id: 'pm', name: 'Priya Menon',   role: 'Estimation Lead',     init: 'PM', hue: 152 },
-  { id: 'ka', name: 'Khalid Aziz',   role: 'Commercial',          init: 'KA', hue: 46 },
-  { id: 'ep', name: 'Elena Petrova', role: 'Director / Reviewer', init: 'EP', hue: 205 },
+  { id: 'lh', name: 'Layla Haddad',  role: 'BD Manager',          init: 'LH', hue: 8,   email: 'layla.haddad@satco.example',  group: 'BD Team',         roleKey: 'bd_manager' },
+  { id: 'ok', name: 'Omar Khalil',   role: 'Proposal Manager',    init: 'OK', hue: 250, email: 'omar.khalil@satco.example',   group: 'Proposal Team',   roleKey: 'proposal_manager' },
+  { id: 'sn', name: 'Sara Nasser',   role: 'Tender Coordinator',  init: 'SN', hue: 175, email: 'sara.nasser@satco.example',   group: 'Proposal Team',   roleKey: 'tender_coordinator' },
+  { id: 'dr', name: 'Daniel Roa',    role: 'Document Controller', init: 'DR', hue: 300, email: 'daniel.roa@satco.example',    group: 'Proposal Team',   roleKey: 'document_controller' },
+  { id: 'pm', name: 'Priya Menon',   role: 'Estimation Lead',     init: 'PM', hue: 152, email: 'priya.menon@satco.example',   group: 'Commercial Team', roleKey: 'commercial_manager' },
+  { id: 'ka', name: 'Khalid Aziz',   role: 'Commercial',          init: 'KA', hue: 46,  email: 'khalid.aziz@satco.example',   group: 'Commercial Team', roleKey: 'commercial_manager' },
+  { id: 'ep', name: 'Elena Petrova', role: 'Director / Reviewer', init: 'EP', hue: 205, email: 'elena.petrova@satco.example', group: 'Management',      roleKey: 'reviewer' },
+  { id: 'admin', name: 'System Admin', role: 'Administrator',     init: 'AD', hue: 230, email: 'admin@satco.example',         group: 'Admins',          roleKey: 'admin' },
 ]
+
+// Notification team groups (Feature 3) — display order for the recipient selector.
+export const TEAM_GROUPS: TeamGroup[] = [
+  'BD Team', 'Proposal Team', 'Commercial Team', 'Finance Team', 'Management', 'Admins',
+]
+
+// Closed/Lost reason categories (Fix 3). Also seeded as an editable `close_reason` list.
+export const CLOSE_REASONS = [
+  'Commercially not competitive', 'Technically non-compliant', 'Client cancelled',
+  'Project postponed', 'Scope mismatch', 'Missing qualification', 'Bid bond issue',
+  'Resource limitation', 'Strategic no-go', 'Lost to competitor', 'Other',
+]
+
+// Statuses that require a closed/lost reason before the change is saved.
+export const CLOSING_STATUSES: StatusKey[] = ['Closed Lost', 'Cancelled', 'No-Go', 'Postponed']
 
 export const CLIENTS: Client[] = [
   { id: 'rta',  name: 'Roads & Transport Authority',  portal: 'In-Tend',     contact: 'M. Al Suwaidi',   sector: 'Transport',     wins: 4, losses: 3 },
@@ -104,6 +121,7 @@ export const OPTION_SEED: Record<string, string[]> = {
   site_visit:    SITE_VISIT_PRESETS,
   bond_validity: BOND_VALIDITY_PRESETS,
   opp_type:      OPP_TYPES,
+  close_reason:  CLOSE_REASONS,
 }
 
 export function buildOptionSeed(): ListOption[] {
@@ -136,7 +154,9 @@ export const reminderMeta = (t: string) =>
 type RawOpp = Omit<Opportunity,
   | 'followUps' | 'documents' | 'activity'
   | 'rfpNumber' | 'partnerInvolved' | 'partnerName' | 'contractDuration'
-  | 'siteVisitMode' | 'qDeadlineTime' | 'bidDueTime' | 'bondValidityDays'>
+  | 'siteVisitMode' | 'qDeadlineTime' | 'bidDueTime' | 'bondValidityDays'
+  | 'closedReasonCategory' | 'closedReasonNotes' | 'closedBy' | 'closedAt'
+  | 'archivedAt' | 'followUpTwo'>
 
 const RAW_OPPS: RawOpp[] = [
   { id:'o1',  ref:'SATCO-2026-0142', title:'Al Wasl Interchange — Civil & Structural Works',        client:'rta',  portal:'In-Tend',     type:'Bid', cls:'Roads & Bridges',  proc:'Open Tender',  status:'Live Bid',        priority:'Critical', owner:'lh', reviewer:'ep', rfpReceived:'2026-05-12', siteVisit:'2026-05-26', qDeadline:'2026-06-02', bidDue:'2026-06-06', submission:'', followUp:'', bondPct:2,   bondValidity:'2026-12-06', bondReq:true,  result:'', value:48500000, updated:'2026-06-03', notes:'Heavy civil package. Pricing for piling sub-contractor still pending from Priya. Client confirmed 90-day bond validity.', checklist:null },
@@ -195,8 +215,18 @@ export function synthExtras(o: Pick<Opportunity,
   return { followUps, documents, activity }
 }
 
-// Fill the new Excel-parity fields with sensible defaults.
+// Static, deterministic seed reasons for the demo's closed / postponed opportunities.
+// These are STORED values (not random per-render) — the live app always asks the user.
+const CLOSE_REASON_SEED: Record<string, { category: string; closedBy: string }> = {
+  o13: { category: 'Commercially not competitive', closedBy: 'sn' },
+  o14: { category: 'Technically non-compliant',    closedBy: 'ok' },
+  o19: { category: 'Project postponed',            closedBy: 'pm' },
+  o22: { category: 'Client cancelled',             closedBy: 'pm' },
+}
+
+// Fill the new Excel-parity / reason fields with sensible defaults.
 function withDefaults(o: RawOpp): Omit<Opportunity, 'followUps' | 'documents' | 'activity'> {
+  const seed = CLOSE_REASON_SEED[o.id]
   return {
     rfpNumber: '',
     partnerInvolved: false,
@@ -206,6 +236,12 @@ function withDefaults(o: RawOpp): Omit<Opportunity, 'followUps' | 'documents' | 
     qDeadlineTime: '',
     bidDueTime: '',
     bondValidityDays: null,
+    closedReasonCategory: seed?.category ?? '',
+    closedReasonNotes: '',
+    closedBy: seed?.closedBy ?? '',
+    closedAt: seed ? o.updated : '',
+    archivedAt: '',
+    followUpTwo: '',
     ...o,
   }
 }
@@ -229,3 +265,59 @@ export const byId = (id: string) => TEAM.find(t => t.id === id)
 let _clients: Client[] = CLIENTS
 export const setClientRegistry = (clients: Client[]) => { _clients = clients }
 export const byClient = (id: string) => _clients.find(c => c.id === id)
+
+// ── Change History seed (Feature 2) — demo-mode fallback for /change-history ───
+// Real, readable audit entries (not technical logs). DB mode replaces these.
+function ce(e: Partial<ChangeEvent> & { id: string; readableSummary: string; createdAt: string }): ChangeEvent {
+  const who = e.userId ? byId(e.userId) : undefined
+  return {
+    id: e.id, userId: e.userId ?? 'lh',
+    userName: e.userName ?? who?.name ?? 'Layla Haddad',
+    userInitials: e.userInitials ?? who?.init ?? 'LH',
+    actionType: e.actionType ?? 'field_edited',
+    oppId: e.oppId ?? null, oppRef: e.oppRef ?? '', oppTitle: e.oppTitle ?? '',
+    fieldChanged: e.fieldChanged ?? '', oldValue: e.oldValue ?? '', newValue: e.newValue ?? '',
+    source: e.source ?? 'dashboard', importance: e.importance ?? 'normal',
+    excelStatus: e.excelStatus ?? '', emailStatus: e.emailStatus ?? '',
+    recipients: e.recipients ?? [], recipientsSummary: e.recipientsSummary ?? '',
+    userNote: e.userNote ?? '', readableSummary: e.readableSummary, createdAt: e.createdAt,
+  }
+}
+
+export const SEED_CHANGES: ChangeEvent[] = [
+  ce({ id: 'ce-1', userId: 'lh', actionType: 'due_date_changed', importance: 'major',
+    oppId: 'o1', oppRef: 'SATCO-02450', oppTitle: 'Al Wasl Interchange — Civil & Structural Works',
+    fieldChanged: 'Bid due date', oldValue: '6 Jun 26', newValue: '8 Jun 26',
+    emailStatus: 'sent_demo', recipientsSummary: 'all team members',
+    readableSummary: 'Layla Haddad changed Bid due date from 6 Jun 26 to 8 Jun 26 for SATCO-02450.',
+    createdAt: '2026-06-04T08:12:00.000Z' }),
+  ce({ id: 'ce-2', userId: 'sn', actionType: 'status_changed', importance: 'major',
+    oppId: 'o7', oppRef: 'SATCO-2026-0118', oppTitle: 'Ministry of Housing — Affordable Housing Phase 5',
+    fieldChanged: 'Status', oldValue: 'Live Bid', newValue: 'Submitted',
+    emailStatus: 'sent_demo', recipientsSummary: 'all team members',
+    readableSummary: 'Sara Nasser changed Status from Live Bid to Submitted for SATCO-2026-0118.',
+    createdAt: '2026-06-03T14:40:00.000Z' }),
+  ce({ id: 'ce-3', userId: 'ka', actionType: 'bond_pct_changed', importance: 'major',
+    oppId: 'o10', oppRef: 'SATCO-2026-0094', oppTitle: 'Qatar Energy — Pipeline Corridor Civil Works',
+    fieldChanged: 'Bid bond percentage', oldValue: '2%', newValue: '2.5%',
+    emailStatus: 'sent_demo', recipientsSummary: '3 selected recipients',
+    readableSummary: 'Khalid Aziz changed Bid bond percentage from 2% to 2.5% for SATCO-2026-0094.',
+    createdAt: '2026-06-03T11:05:00.000Z' }),
+  ce({ id: 'ce-4', userId: 'sn', actionType: 'closed_reason_changed', importance: 'major',
+    oppId: 'o13', oppRef: 'SATCO-2026-0058', oppTitle: 'SEC Western Region — Overhead Lines Refurb',
+    fieldChanged: 'Closed/Lost reason', oldValue: '—', newValue: 'Commercially not competitive',
+    readableSummary: 'Sara Nasser set Closed/Lost reason to Commercially not competitive for SATCO-2026-0058.',
+    createdAt: '2026-06-02T16:20:00.000Z' }),
+  ce({ id: 'ce-5', userId: 'lh', actionType: 'notes_updated', importance: 'normal',
+    oppId: 'o1', oppRef: 'SATCO-02450', oppTitle: 'Al Wasl Interchange — Civil & Structural Works',
+    fieldChanged: 'Notes',
+    readableSummary: 'Layla Haddad updated Notes for SATCO-02450.',
+    createdAt: '2026-06-02T09:30:00.000Z' }),
+  ce({ id: 'ce-6', userId: 'admin', actionType: 'excel_export', source: 'excel_export', excelStatus: 'exported',
+    readableSummary: 'System Admin exported the updated Excel tracker with 22 opportunities.',
+    createdAt: '2026-06-01T17:00:00.000Z' }),
+  ce({ id: 'ce-7', userId: 'ok', actionType: 'created', importance: 'normal', excelStatus: 'pending',
+    oppId: 'o21', oppRef: 'SATCO-2026-0125', oppTitle: 'Ministry of Housing — School Buildings Batch C',
+    readableSummary: 'Omar Khalil created opportunity SATCO-2026-0125 — Ministry of Housing — School Buildings Batch C.',
+    createdAt: '2026-06-01T10:15:00.000Z' }),
+]

@@ -5,7 +5,8 @@
 
 import type {
   Opportunity, OppType, Priority, Result, StatusKey,
-  SiteVisitMode, Document, CalendarItem,
+  SiteVisitMode, Document, CalendarItem, ChangeEvent, ChangeSource,
+  ChangeImportance, EmailStatus, ExcelStatus,
 } from './types'
 import { synthExtras } from './data'
 
@@ -77,6 +78,12 @@ export interface OppRow {
   result: string
   estValue: number
   notes: string
+  closedReasonCategory: string | null
+  closedReasonNotes: string
+  closedById: string | null
+  closedAt: Date | null
+  archivedAt: Date | null
+  followUpTwo: Date | null
   checklist: string | null
   updatedAt: Date
   documents?: DocRow[]   // present when the query includes the relation
@@ -145,6 +152,12 @@ export function dbToOpp(r: OppRow): Opportunity {
     value: r.estValue,
     updated: dateToStr(r.updatedAt),
     notes: r.notes,
+    closedReasonCategory: r.closedReasonCategory ?? '',
+    closedReasonNotes: r.closedReasonNotes ?? '',
+    closedBy: r.closedById ?? '',
+    closedAt: dateToStr(r.closedAt),
+    archivedAt: dateToStr(r.archivedAt),
+    followUpTwo: dateToStr(r.followUpTwo),
     checklist: r.checklist ? (JSON.parse(r.checklist) as Record<string, boolean>) : null,
   }
   const extras = synthExtras(base)
@@ -186,6 +199,12 @@ export function oppToDbData(o: Partial<Opportunity>) {
   if (o.result          !== undefined) d.result = o.result
   if (o.value           !== undefined) d.estValue = o.value
   if (o.notes           !== undefined) d.notes = o.notes
+  if (o.closedReasonCategory !== undefined) d.closedReasonCategory = o.closedReasonCategory || null
+  if (o.closedReasonNotes    !== undefined) d.closedReasonNotes = o.closedReasonNotes
+  if (o.closedBy        !== undefined) d.closedById = o.closedBy || null
+  if (o.closedAt        !== undefined) d.closedAt = strToDate(o.closedAt)
+  if (o.archivedAt      !== undefined) d.archivedAt = strToDate(o.archivedAt)
+  if (o.followUpTwo     !== undefined) d.followUpTwo = strToDate(o.followUpTwo)
   if (o.checklist       !== undefined) d.checklist = o.checklist ? JSON.stringify(o.checklist) : null
   return d
 }
@@ -199,6 +218,86 @@ export function docToDbData(doc: Partial<Document>) {
   if (doc.type  !== undefined) d.kind = doc.type
   if (doc.meta  !== undefined) d.meta = doc.meta
   return d
+}
+
+// ── Change History (Feature 2) ────────────────────────────────────────────────
+
+/** Scalar columns of the ChangeEvent table. */
+export interface ChangeRow {
+  id: string
+  userId: string
+  userName: string
+  userInitials: string
+  actionType: string
+  oppId: string | null
+  oppRef: string
+  oppTitle: string
+  fieldChanged: string
+  oldValue: string
+  newValue: string
+  source: string
+  importance: string
+  excelStatus: string
+  emailStatus: string
+  recipients: string
+  recipientsSummary: string
+  userNote: string
+  readableSummary: string
+  createdAt: Date
+}
+
+/** ChangeEvent DB row → app ChangeEvent. */
+export function dbToChange(r: ChangeRow): ChangeEvent {
+  let recipients: string[] = []
+  try { recipients = r.recipients ? (JSON.parse(r.recipients) as string[]) : [] } catch { recipients = [] }
+  return {
+    id: r.id,
+    userId: r.userId,
+    userName: r.userName,
+    userInitials: r.userInitials,
+    actionType: r.actionType,
+    oppId: r.oppId,
+    oppRef: r.oppRef,
+    oppTitle: r.oppTitle,
+    fieldChanged: r.fieldChanged,
+    oldValue: r.oldValue,
+    newValue: r.newValue,
+    source: r.source as ChangeSource,
+    importance: r.importance as ChangeImportance,
+    excelStatus: r.excelStatus as ExcelStatus,
+    emailStatus: r.emailStatus as EmailStatus,
+    recipients,
+    recipientsSummary: r.recipientsSummary,
+    userNote: r.userNote,
+    readableSummary: r.readableSummary,
+    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+  }
+}
+
+/** App ChangeEvent → Prisma ChangeEvent create data. */
+export function changeToDbData(c: ChangeEvent) {
+  return {
+    id: c.id,
+    userId: c.userId,
+    userName: c.userName,
+    userInitials: c.userInitials,
+    actionType: c.actionType,
+    oppId: c.oppId,
+    oppRef: c.oppRef,
+    oppTitle: c.oppTitle,
+    fieldChanged: c.fieldChanged,
+    oldValue: c.oldValue,
+    newValue: c.newValue,
+    source: c.source,
+    importance: c.importance,
+    excelStatus: c.excelStatus,
+    emailStatus: c.emailStatus,
+    recipients: JSON.stringify(c.recipients ?? []),
+    recipientsSummary: c.recipientsSummary,
+    userNote: c.userNote,
+    readableSummary: c.readableSummary,
+    createdAt: new Date(c.createdAt),
+  }
 }
 
 /** App CalendarItem fields → Prisma Reminder create/update data (only present keys). */

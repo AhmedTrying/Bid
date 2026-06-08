@@ -6,6 +6,7 @@ import { Topbar } from '@/components/app/topbar'
 import { Toast } from '@/components/app/toast'
 import { CommandPalette } from '@/components/app/command-palette'
 import { QuickAddModal } from '@/components/app/quick-add-modal'
+import { CloseReasonModal } from '@/components/app/closed-reason-modal'
 import { ThemeProvider } from '@/components/app/providers'
 import { useStore } from '@/lib/store'
 
@@ -64,6 +65,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
 
       {paletteOpen  && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       {quickAddOpen && <QuickAddModal  onClose={() => setQuickAddOpen(false)} />}
+      <CloseReasonModal />
       <Toast />
     </div>
   )

@@ -55,7 +55,7 @@ export default function SettingsPage() {
             <div style={{ display: 'grid', gap: 24 }}>
               <Section title="Workspace">
                 <Field label="Company name"><input className="bf-input" defaultValue="SATCO" style={{ maxWidth: 320 }} onBlur={e => flash('Company name saved')} /></Field>
-                <Field label="Base currency"><input className="bf-input" defaultValue="AED" style={{ maxWidth: 120 }} readOnly /></Field>
+                <Field label="Base currency"><input className="bf-input" defaultValue="SAR" style={{ maxWidth: 120 }} readOnly /></Field>
                 <Field label="Today anchor" hint="Fixed for demo stability">
                   <input className="bf-input" defaultValue="2026-06-04" style={{ maxWidth: 180 }} readOnly />
                 </Field>
@@ -134,6 +134,7 @@ export default function SettingsPage() {
               <EditableList category="opp_type"       title="Opportunity types" />
               <EditableList category="site_visit"     title="Site-visit options" hint="Form uses Date / TBC / Not required; edit labels here." />
               <EditableList category="bond_validity"  title="Bond validity presets" hint="Used as quick-fill suggestions (e.g. “180 days”)." />
+              <EditableList category="close_reason"   title="Closed / Lost reasons" hint="Shown when an opportunity is closed, cancelled, no-go or postponed." />
             </div>
           )}
 
