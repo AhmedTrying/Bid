@@ -3,13 +3,15 @@
 import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import { ACCENTS } from '@/lib/helpers'
-import { TEAM, CLIENTS } from '@/lib/data'
+import { TEAM } from '@/lib/data'
 import { Icon } from '@/components/ui/icon'
 import { Avatar } from '@/components/ui/avatar'
+import { EditableList } from '@/components/app/editable-list'
 
 const TABS = [
   { id: 'general',    label: 'General',    icon: 'settings' },
   { id: 'appearance', label: 'Appearance', icon: 'sun' },
+  { id: 'lists',      label: 'Lists',      icon: 'list' },
   { id: 'team',       label: 'Team',       icon: 'clients' },
   { id: 'portals',    label: 'Portals',    icon: 'inbox' },
   { id: 'data',       label: 'Data',       icon: 'table' },
@@ -27,6 +29,7 @@ export default function SettingsPage() {
   const setCardStyle = useStore(s => s.setCardStyle)
   const flash      = useStore(s => s.flash)
   const opps       = useStore(s => s.opps)
+  const clients    = useStore(s => s.clients)
 
   return (
     <div className="bf-canvas-pad" style={{ animation: 'bf-rise-up .4s cubic-bezier(.2,.8,.2,1)', maxWidth: 900 }}>
@@ -117,6 +120,23 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {tab === 'lists' && (
+            <div style={{ display: 'grid', gap: 28 }}>
+              <p style={{ fontSize: 13.5, color: 'var(--bf-text-2)', margin: 0 }}>
+                Edit the dropdown options used across the app. Changes appear immediately in the
+                <strong style={{ color: 'var(--bf-text)' }}> Add Opportunity</strong> form and detail pages.
+                Clients are managed on the <strong style={{ color: 'var(--bf-text)' }}>Clients &amp; Portals</strong> page.
+              </p>
+              <EditableList category="portal"         title="Portals" />
+              <EditableList category="classification" title="Classifications" />
+              <EditableList category="procurement"    title="Procurement methods" />
+              <EditableList category="partner"        title="Partners" />
+              <EditableList category="opp_type"       title="Opportunity types" />
+              <EditableList category="site_visit"     title="Site-visit options" hint="Form uses Date / TBC / Not required; edit labels here." />
+              <EditableList category="bond_validity"  title="Bond validity presets" hint="Used as quick-fill suggestions (e.g. “180 days”)." />
+            </div>
+          )}
+
           {tab === 'team' && (
             <Section title="Team members">
               <div style={{ display: 'grid', gap: 10 }}>
@@ -141,7 +161,7 @@ export default function SettingsPage() {
           {tab === 'portals' && (
             <Section title="Tender portals">
               <p style={{ fontSize: 13.5, color: 'var(--bf-text-2)', marginBottom: 16 }}>Portal credentials are stored in your browser only — BidFlow never sends them to a server.</p>
-              {CLIENTS.map(c => (
+              {clients.map(c => (
                 <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: '1px solid var(--bf-border-2)' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</div>

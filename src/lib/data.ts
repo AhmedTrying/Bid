@@ -3,7 +3,7 @@
 
 import type {
   StatusKey, Stage, StatusMeta, PriorityMeta,
-  TeamMember, Client, Opportunity,
+  TeamMember, Client, Opportunity, ListOption, ReminderType,
 } from './types'
 
 export const TODAY = '2026-06-04'
@@ -77,8 +77,68 @@ export const DOC_TEMPLATE = [
   'HSE Documents', 'QA/QC Documents', 'Key CVs', 'ISO Certificates',
 ]
 
-// Raw opportunity data
-const RAW_OPPS: Omit<Opportunity, 'followUps' | 'documents' | 'activity'>[] = [
+// Document-link category labels (Documents & Links section).
+export const DOC_LABELS = [
+  'RFP Documents', 'Technical Proposal', 'Financial Proposal',
+  'BOQ', 'Clarifications', 'Submitted Package', 'Other',
+]
+
+export const PARTNERS = [
+  'JV Partner', 'Specialist Subcontractor', 'Technology Provider',
+]
+
+export const SITE_VISIT_PRESETS = ['Date', 'TBC', 'Not Required']
+
+export const BOND_VALIDITY_PRESETS = ['90 days', '120 days', '180 days', '1 year']
+
+export const OPP_TYPES = ['Bid', 'PQQ', 'RFQ', 'EOI', 'NDA', 'Tender']
+
+// ── Editable option lists (seed source + demo-mode fallback) ──────────────────
+// Category → labels. The live UI reads the editable copies from the Zustand
+// store / DB; these seed both.
+export const OPTION_SEED: Record<string, string[]> = {
+  portal:        PORTALS,
+  classification:CLASSES,
+  procurement:   PROCUREMENT,
+  partner:       PARTNERS,
+  site_visit:    SITE_VISIT_PRESETS,
+  bond_validity: BOND_VALIDITY_PRESETS,
+  opp_type:      OPP_TYPES,
+}
+
+export function buildOptionSeed(): ListOption[] {
+  const out: ListOption[] = []
+  for (const [category, labels] of Object.entries(OPTION_SEED)) {
+    labels.forEach((label, i) => out.push({ id: `${category}:${label}`, category, label, order: i }))
+  }
+  return out
+}
+
+export const OPTIONS: ListOption[] = buildOptionSeed()
+
+// ── Calendar reminder types (label + colour hue) ──────────────────────────────
+export const REMINDER_TYPES: { value: ReminderType; label: string; hue: number }[] = [
+  { value: 'bid_due',           label: 'Bid due date',      hue: 46 },
+  { value: 'question_deadline', label: 'Question deadline', hue: 60 },
+  { value: 'site_visit',        label: 'Site visit',        hue: 175 },
+  { value: 'internal_review',   label: 'Internal review',   hue: 250 },
+  { value: 'commercial_review', label: 'Commercial review', hue: 300 },
+  { value: 'bond_expiry',       label: 'Bid bond expiry',   hue: 80 },
+  { value: 'follow_up',         label: 'Follow-up reminder',hue: 230 },
+  { value: 'custom',            label: 'Custom reminder',   hue: 205 },
+]
+
+export const reminderMeta = (t: string) =>
+  REMINDER_TYPES.find(r => r.value === t) ?? { value: 'custom' as ReminderType, label: 'Custom', hue: 205 }
+
+// Raw opportunity data. New Excel-parity fields (rfpNumber, partner*, etc.) are
+// filled with defaults by `withDefaults` so this table stays readable.
+type RawOpp = Omit<Opportunity,
+  | 'followUps' | 'documents' | 'activity'
+  | 'rfpNumber' | 'partnerInvolved' | 'partnerName' | 'contractDuration'
+  | 'siteVisitMode' | 'qDeadlineTime' | 'bidDueTime' | 'bondValidityDays'>
+
+const RAW_OPPS: RawOpp[] = [
   { id:'o1',  ref:'SATCO-2026-0142', title:'Al Wasl Interchange — Civil & Structural Works',        client:'rta',  portal:'In-Tend',     type:'Bid', cls:'Roads & Bridges',  proc:'Open Tender',  status:'Live Bid',        priority:'Critical', owner:'lh', reviewer:'ep', rfpReceived:'2026-05-12', siteVisit:'2026-05-26', qDeadline:'2026-06-02', bidDue:'2026-06-06', submission:'', followUp:'', bondPct:2,   bondValidity:'2026-12-06', bondReq:true,  result:'', value:48500000, updated:'2026-06-03', notes:'Heavy civil package. Pricing for piling sub-contractor still pending from Priya. Client confirmed 90-day bond validity.', checklist:null },
   { id:'o2',  ref:'SATCO-2026-0138', title:'NEOM Spine — MEP Systems Package 4',                    client:'neom', portal:'Ariba (SAP)', type:'Bid', cls:'MEP',               proc:'Two-Stage',    status:'Bid in Progress', priority:'High',     owner:'ka', reviewer:'ep', rfpReceived:'2026-05-18', siteVisit:'2026-06-01', qDeadline:'2026-06-08', bidDue:'2026-06-15', submission:'', followUp:'', bondPct:1.5, bondValidity:'2026-11-15', bondReq:true,  result:'', value:72000000, updated:'2026-06-02', notes:'Stage 1 technical accepted. Awaiting BOQ rev C before commercial build-up.', checklist:null },
   { id:'o3',  ref:'SATCO-2026-0151', title:'Etihad Rail Stage 2 — Drainage & Earthworks',           client:'rail', portal:'Tejari',      type:'Bid', cls:'Infrastructure',   proc:'Selective',    status:'Live Bid',        priority:'High',     owner:'pm', reviewer:'lh', rfpReceived:'2026-05-20', siteVisit:'2026-05-29', qDeadline:'2026-06-05', bidDue:'2026-06-09', submission:'', followUp:'', bondPct:2,   bondValidity:'2026-12-09', bondReq:true,  result:'', value:31200000, updated:'2026-06-03', notes:'Question deadline tomorrow. Two RFIs raised on geotech baseline.', checklist:null },
@@ -107,7 +167,7 @@ const RAW_OPPS: Omit<Opportunity, 'followUps' | 'documents' | 'activity'>[] = [
 // opportunity's core fields. Kept as a shared function so the seed data and the
 // database-read path (src/lib/db-map.ts) produce identical detail-page content.
 export function synthExtras(o: Pick<Opportunity,
-  'status' | 'submission' | 'bidDue' | 'followUp' | 'bondReq' | 'owner' | 'rfpReceived'
+  'id' | 'status' | 'submission' | 'bidDue' | 'followUp' | 'bondReq' | 'owner' | 'rfpReceived'
 >): Pick<Opportunity, 'followUps' | 'documents' | 'activity'> {
   const followUps: Opportunity['followUps'] = []
   if (['Submitted', 'Negotiation', 'Awarded'].includes(o.status)) {
@@ -119,10 +179,10 @@ export function synthExtras(o: Pick<Opportunity,
   }
 
   const documents: Opportunity['documents'] = [
-    { name: 'RFP / Tender Package', type: 'folder', meta: '12 files · SharePoint' },
-    { name: 'Drawings & BOQ',       type: 'sheet',  meta: 'updated 2 days ago' },
-    { name: 'Commercial Build-up',  type: 'sheet',  meta: o.bondReq ? 'draft' : '—' },
-    { name: 'Submission Pack',      type: 'pdf',    meta: o.submission ? 'final' : 'not started' },
+    { id: `${o.id}-d1`, label: 'RFP Documents',      name: 'RFP / Tender Package', url: '', type: 'folder', meta: '12 files · SharePoint' },
+    { id: `${o.id}-d2`, label: 'BOQ',                name: 'Drawings & BOQ',       url: '', type: 'sheet',  meta: 'updated 2 days ago' },
+    { id: `${o.id}-d3`, label: 'Financial Proposal', name: 'Commercial Build-up',  url: '', type: 'sheet',  meta: o.bondReq ? 'draft' : '—' },
+    { id: `${o.id}-d4`, label: 'Submitted Package',  name: 'Submission Pack',      url: '', type: 'pdf',    meta: o.submission ? 'final' : 'not started' },
   ]
 
   const activity: Opportunity['activity'] = [
@@ -135,13 +195,37 @@ export function synthExtras(o: Pick<Opportunity,
   return { followUps, documents, activity }
 }
 
+// Fill the new Excel-parity fields with sensible defaults.
+function withDefaults(o: RawOpp): Omit<Opportunity, 'followUps' | 'documents' | 'activity'> {
+  return {
+    rfpNumber: '',
+    partnerInvolved: false,
+    partnerName: '',
+    contractDuration: '',
+    siteVisitMode: 'date',
+    qDeadlineTime: '',
+    bidDueTime: '',
+    bondValidityDays: null,
+    ...o,
+  }
+}
+
 function buildOpps(): Opportunity[] {
-  return RAW_OPPS.map(o => ({ ...o, ...synthExtras(o) }))
+  return RAW_OPPS.map(o => {
+    const full = withDefaults(o)
+    return { ...full, ...synthExtras(full) }
+  })
 }
 
 export const OPPS: Opportunity[] = buildOpps()
-// Core scalar rows (no synthesized extras) — used by the database seed script.
-export const SEED_OPPS = RAW_OPPS
+// Core scalar rows (with defaults, no synthesized extras) — used by the DB seed.
+export const SEED_OPPS = RAW_OPPS.map(withDefaults)
 
 export const byId = (id: string) => TEAM.find(t => t.id === id)
-export const byClient = (id: string) => CLIENTS.find(c => c.id === id)
+
+// Live client registry: defaults to the seed, but the Zustand store keeps it in
+// sync (via setClientRegistry) so byClient() reflects added/edited/deleted
+// clients without every page having to read the store directly.
+let _clients: Client[] = CLIENTS
+export const setClientRegistry = (clients: Client[]) => { _clients = clients }
+export const byClient = (id: string) => _clients.find(c => c.id === id)

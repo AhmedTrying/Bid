@@ -5,7 +5,7 @@
 import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
-import { TEAM, CLIENTS, STATUS, STAGES, SEED_OPPS } from '../src/lib/data'
+import { TEAM, CLIENTS, STATUS, STAGES, SEED_OPPS, OPPS, buildOptionSeed } from '../src/lib/data'
 import { oppToDbData } from '../src/lib/db-map'
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
@@ -48,6 +48,17 @@ async function main() {
   }
   console.log(`  ✓ ${labels.length} statuses`)
 
+  // Editable dropdown lists → ListOption (idempotent on category+label)
+  const options = buildOptionSeed()
+  for (const opt of options) {
+    await prisma.listOption.upsert({
+      where: { category_label: { category: opt.category, label: opt.label } },
+      update: { order: opt.order },
+      create: { category: opt.category, label: opt.label, order: opt.order },
+    })
+  }
+  console.log(`  ✓ ${options.length} list options`)
+
   // Opportunities
   for (const o of SEED_OPPS) {
     const data = oppToDbData(o)
@@ -58,6 +69,35 @@ async function main() {
     })
   }
   console.log(`  ✓ ${SEED_OPPS.length} opportunities`)
+
+  // Document links (from the synthesized demo docs on each opportunity)
+  let docCount = 0
+  for (const o of OPPS) {
+    for (const d of o.documents) {
+      await prisma.document.upsert({
+        where: { id: d.id },
+        update: { label: d.label, name: d.name, url: d.url, kind: d.type ?? 'file', meta: d.meta ?? '' },
+        create: { id: d.id, oppId: o.id, label: d.label, name: d.name, url: d.url, kind: d.type ?? 'file', meta: d.meta ?? '' },
+      })
+      docCount++
+    }
+  }
+  console.log(`  ✓ ${docCount} document links`)
+
+  // A few sample calendar reminders (some linked to opportunities)
+  const reminders = [
+    { id: 'rem-seed-1', oppId: 'o1',  type: 'internal_review',   title: 'Technical review — Al Wasl Interchange', date: new Date('2026-06-05T00:00:00.000Z'), time: '10:00' },
+    { id: 'rem-seed-2', oppId: 'o2',  type: 'commercial_review', title: 'Pricing review — NEOM Spine MEP',        date: new Date('2026-06-10T00:00:00.000Z'), time: '14:00' },
+    { id: 'rem-seed-3', oppId: null,  type: 'custom',            title: 'BD team weekly sync',                    date: new Date('2026-06-08T00:00:00.000Z'), time: '09:00' },
+  ]
+  for (const r of reminders) {
+    await prisma.reminder.upsert({
+      where: { id: r.id },
+      update: { oppId: r.oppId, type: r.type, title: r.title, date: r.date, time: r.time },
+      create: { id: r.id, oppId: r.oppId, type: r.type, title: r.title, date: r.date, time: r.time },
+    })
+  }
+  console.log(`  ✓ ${reminders.length} reminders`)
   console.log('Done.')
 }
 

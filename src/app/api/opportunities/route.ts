@@ -9,7 +9,10 @@ export const dynamic = 'force-dynamic'
 // GET /api/opportunities — list all (DB when configured, else seed data)
 export async function GET() {
   if (dbEnabled && prisma) {
-    const rows = await prisma.opportunity.findMany({ orderBy: { bidDue: 'asc' } })
+    const rows = await prisma.opportunity.findMany({
+      orderBy: { bidDue: 'asc' },
+      include: { documents: true },
+    })
     return NextResponse.json({ source: 'db', opps: rows.map(r => dbToOpp(r as unknown as OppRow)) })
   }
   return NextResponse.json({ source: 'seed', opps: OPPS })

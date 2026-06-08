@@ -8,6 +8,7 @@ export type CardStyle = 'soft' | 'accent' | 'minimal'
 export type OppType = 'Bid' | 'PQQ' | 'RFQ' | 'EOI' | 'NDA' | 'Tender'
 export type Priority = 'Low' | 'Medium' | 'High' | 'Critical'
 export type Result = '' | 'Awarded' | 'Lost' | 'Cancelled'
+export type SiteVisitMode = 'date' | 'tbc' | 'not_required'
 
 export type StatusKey =
   | 'New Lead' | 'To Qualify'
@@ -49,11 +50,38 @@ export interface Client {
   losses: number
 }
 
+// Editable dropdown list option (portals, classifications, partners, …).
+export interface ListOption {
+  id: string
+  category: string
+  label: string
+  order: number
+}
+
 export interface Document {
-  name: string
-  type: 'folder' | 'sheet' | 'pdf' | 'file'
-  meta: string
-  url?: string
+  id: string
+  label: string        // category, e.g. 'RFP Documents' | 'BOQ' | 'Other'
+  name: string         // display title
+  url: string          // the actual link
+  type?: 'folder' | 'sheet' | 'pdf' | 'file'  // presentation icon hint (legacy/demo)
+  meta?: string                                // presentation subtitle (legacy/demo)
+}
+
+export type ReminderType =
+  | 'bid_due' | 'question_deadline' | 'site_visit'
+  | 'internal_review' | 'commercial_review' | 'bond_expiry'
+  | 'follow_up' | 'custom'
+
+// Real calendar reminder, optionally linked to an opportunity.
+export interface CalendarItem {
+  id: string
+  oppId: string | null
+  type: ReminderType
+  title: string
+  date: string   // 'YYYY-MM-DD'
+  time: string   // 'HH:mm'
+  notes: string
+  done: boolean
 }
 
 export interface FollowUp {
@@ -72,6 +100,7 @@ export interface ActivityEntry {
 export interface Opportunity {
   id: string
   ref: string
+  rfpNumber: string
   title: string
   client: string       // client id
   portal: string
@@ -82,14 +111,21 @@ export interface Opportunity {
   priority: Priority
   owner: string        // team member id
   reviewer: string
+  partnerInvolved: boolean
+  partnerName: string
+  contractDuration: string
   rfpReceived: string
   siteVisit: string
+  siteVisitMode: SiteVisitMode
   qDeadline: string
+  qDeadlineTime: string   // 'HH:mm'
   bidDue: string
+  bidDueTime: string      // 'HH:mm'
   submission: string
   followUp: string
   bondPct: number
   bondValidity: string
+  bondValidityDays: number | null
   bondReq: boolean
   result: Result
   value: number

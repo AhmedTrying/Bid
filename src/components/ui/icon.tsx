@@ -67,6 +67,8 @@ const PATHS: Record<string, string> = {
   inbox:      'M3 12h5l2 3h4l2-3h5M3 12l3-7h12l3 7v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z',
   calendarPlus:'M7 3v3M17 3v3M4 8h16M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM12 11v6M9 14h6',
   copy:       'M9 9h11v11H9zM5 15H4V4h11v1',
+  trash:      'M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6',
+  save:       'M5 3h11l3 3v15a0 0 0 0 1 0 0H5a0 0 0 0 1 0 0V3zM8 3v5h8M8 21v-7h8v7',
 }
 
 interface IconProps {

@@ -73,6 +73,7 @@ model StatusConfig {
 model Opportunity {
   id             String   @id @default(cuid())
   ref            String   @unique
+  rfpNumber      String?
   title          String
   clientId       String
   client         Client   @relation(fields: [clientId], references: [id])
@@ -88,16 +89,24 @@ model Opportunity {
   reviewerId     String?
   reviewer       User?    @relation("reviewer", fields: [reviewerId], references: [id])
 
+  partnerInvolved  Boolean @default(false)
+  partnerName      String  @default("")
+  contractDuration String  @default("")
+
   rfpReceived      DateTime?
   siteVisit        DateTime?
+  siteVisitMode    String   @default("date") // date | tbc | not_required
   questionDeadline DateTime?
+  qDeadlineTime    String   @default("")     // HH:mm
   bidDue           DateTime?
+  bidDueTime       String   @default("")     // HH:mm
   submission       DateTime?
   followUp         DateTime?
 
-  bondRequired  Boolean  @default(false)
-  bondPct       Float    @default(0)
-  bondValidity  DateTime?
+  bondRequired     Boolean  @default(false)
+  bondPct          Float    @default(0)
+  bondValidity     DateTime?
+  bondValidityDays Int?
 
   result        String   @default("NONE")
   estValue      Float    @default(0)
@@ -107,18 +116,21 @@ model Opportunity {
   documents     Document[]
   followUps     FollowUp[]
   activity      ActivityLog[]
+  reminders     Reminder[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
 
 model Document {
-  id    String  @id @default(cuid())
-  oppId String
-  name  String
-  url   String  @default("")
-  kind  String  @default("file")
-  meta  String  @default("")
-  opp   Opportunity @relation(fields: [oppId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  oppId     String
+  name      String
+  url       String  @default("")
+  label     String  @default("Other")
+  kind      String  @default("file")
+  meta      String  @default("")
+  createdAt DateTime @default(now())
+  opp       Opportunity @relation(fields: [oppId], references: [id], onDelete: Cascade)
 }
 
 model FollowUp {
@@ -145,4 +157,30 @@ model SavedView {
   userId String
   name   String
   config String // JSON
+}
+
+// Generic editable dropdown lists (portals, classifications, procurement
+// methods, partners, site-visit options, bond-validity presets, opp types).
+model ListOption {
+  id        String   @id @default(cuid())
+  category  String // portal | classification | procurement | partner | site_visit | bond_validity | opp_type
+  label     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([category, label])
+}
+
+// Real calendar reminders, optionally linked to an opportunity.
+model Reminder {
+  id        String       @id @default(cuid())
+  oppId     String?
+  opp       Opportunity? @relation(fields: [oppId], references: [id], onDelete: Cascade)
+  type      String // bid_due | question_deadline | site_visit | internal_review | commercial_review | bond_expiry | follow_up | custom
+  title     String
+  date      DateTime
+  time      String       @default("") // HH:mm
+  notes     String       @default("")
+  done      Boolean      @default(false)
+  createdAt DateTime     @default(now())
 }

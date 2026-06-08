@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useStore } from '@/lib/store'
+import { useStore, optionLabels } from '@/lib/store'
 import { daysUntil, fmtDate, money } from '@/lib/helpers'
 import { STATUS, TEAM, CLASSES, PROCUREMENT, PORTALS, byClient, byId } from '@/lib/data'
 import { Icon } from '@/components/ui/icon'
@@ -15,11 +15,14 @@ import type { Opportunity } from '@/lib/types'
 const COLS = [
   { key: 'ref',         label: 'SATCO Ref',     w: 128, type: 'ref' },
   { key: 'title',       label: 'Title',         w: 280, type: 'text',   pin: true },
+  { key: 'rfpNumber',   label: 'RFP No.',       w: 120, type: 'text' },
   { key: 'client',      label: 'Client',        w: 170, type: 'client' },
   { key: 'portal',      label: 'Portal',        w: 120, type: 'select', opts: () => PORTALS },
   { key: 'type',        label: 'Type',          w: 84,  type: 'select', opts: () => ['Bid','PQQ','RFQ','EOI','NDA','Tender'] },
   { key: 'cls',         label: 'Classification',w: 148, type: 'select', opts: () => CLASSES },
   { key: 'proc',        label: 'Procurement',   w: 128, type: 'select', opts: () => PROCUREMENT },
+  { key: 'partnerName', label: 'Partner',       w: 140, type: 'text' },
+  { key: 'contractDuration', label: 'Duration', w: 110, type: 'text' },
   { key: 'status',      label: 'Status',        w: 140, type: 'status' },
   { key: 'priority',    label: 'Priority',      w: 120, type: 'priority' },
   { key: 'owner',       label: 'Owner',         w: 120, type: 'person' },
@@ -191,7 +194,15 @@ export default function OpportunitiesPage() {
   const [sortDir,      setSortDir]      = useState<'asc'|'desc'>('asc')
   const [statusFilter, setStatusFilter] = useState('all')
   const [colMenu,      setColMenu]      = useState(false)
-  const [hidden,       setHidden]       = useState<Record<string, boolean>>({ proc: true, reviewer: true, bondValidity: true, updated: true })
+  const [hidden,       setHidden]       = useState<Record<string, boolean>>({ rfpNumber: true, proc: true, partnerName: true, contractDuration: true, reviewer: true, bondValidity: true, updated: true })
+  const options = useStore(s => s.options)
+  // Live option sources for editable select columns (reflect Settings → Lists).
+  const liveOpts: Record<string, () => string[]> = {
+    portal: () => optionLabels(options, 'portal'),
+    cls:    () => optionLabels(options, 'classification'),
+    proc:   () => optionLabels(options, 'procurement'),
+    type:   () => optionLabels(options, 'opp_type'),
+  }
 
   const activeView = VIEWS.find(v => v.id === view)!
   const visibleCols = COLS.filter(c => !hidden[c.key])
@@ -362,7 +373,7 @@ export default function OpportunitiesPage() {
                         style={'pin' in c && c.pin ? { position: 'sticky', left: 34, zIndex: 1, background: overdue ? 'var(--bf-danger-soft)' : 'var(--bf-surface)', boxShadow: '1px 0 0 var(--bf-border-2)' } : undefined}>
                         <Cell
                           o={o} colKey={c.key} colType={c.type}
-                          colOpts={'opts' in c ? c.opts as () => string[] : undefined}
+                          colOpts={liveOpts[c.key] ?? ('opts' in c ? c.opts as () => string[] : undefined)}
                           isDue={'due' in c ? (c as { due?: boolean }).due : false}
                           theme={theme} overdue={overdue}
                           updateOpp={updateOpp}

@@ -1,16 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useStore } from '@/lib/store'
+import { useStore, optionLabels } from '@/lib/store'
 import { relDue, fmtDate, money, toneStyle, computeHealth, daysUntil } from '@/lib/helpers'
-import { TODAY } from '@/lib/data'
+import { TODAY, TEAM } from '@/lib/data'
 import { byClient, byId, STATUS } from '@/lib/data'
 import { Icon } from '@/components/ui/icon'
 import { Avatar } from '@/components/ui/avatar'
 import { StatusBadge, PriorityBadge, TypePill } from '@/components/ui/badges'
-import type { Opportunity } from '@/lib/types'
+import { EditableField, type SelectOption } from '@/components/app/inline-field'
+import { DocumentsSection } from '@/components/app/documents-section'
+import { OppReminders } from '@/components/app/opp-reminders'
+import type { Opportunity, OppType, Priority, Result, StatusKey, SiteVisitMode } from '@/lib/types'
 
 // ── Donut chart ───────────────────────────────────────────────────────────────
 function Donut({ score, theme }: { score: number; theme: 'light'|'dark' }) {
@@ -42,15 +45,6 @@ function MetaItem({ icon, label }: { icon: string; label: string }) {
   )
 }
 
-function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <div className="eyebrow" style={{ marginBottom: 4 }}>{label}</div>
-      <div className={mono ? 'mono' : ''} style={{ fontSize: 13.5, fontWeight: 600 }}>{value}</div>
-    </div>
-  )
-}
-
 function Section({ icon, title, hint, children, last }: {
   icon: string; title: string; hint?: string; children: React.ReactNode; last?: boolean
 }) {
@@ -69,11 +63,15 @@ function Section({ icon, title, hint, children, last }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function OpportunityDetailPage() {
   const params    = useParams()
+  const router    = useRouter()
   const id        = params.id as string
   const opps      = useStore(s => s.opps)
   const theme     = useStore(s => s.theme)
   const updateOpp = useStore(s => s.updateOpp)
+  const deleteOpp = useStore(s => s.deleteOpp)
   const flash     = useStore(s => s.flash)
+  const clients   = useStore(s => s.clients)
+  const options   = useStore(s => s.options)
 
   const o = opps.find(x => x.id === id)
 
@@ -92,6 +90,34 @@ export default function OpportunityDetailPage() {
   const due    = relDue(o.bidDue)
   const health = computeHealth(o)
   const bondT  = toneStyle(80, theme)
+
+  // ── inline-edit helpers ──────────────────────────────────────────────────
+  const upd = (patch: Partial<Opportunity>) => updateOpp(o.id, patch)
+  const opt = (labels: string[]): SelectOption[] => labels.map(l => ({ value: l, label: l }))
+  const personOpts: SelectOption[] = [{ value: '', label: 'Unassigned' }, ...TEAM.map(t => ({ value: t.id, label: t.name }))]
+  const clientOpts: SelectOption[] = clients.map(c => ({ value: c.id, label: c.name }))
+  const portalOpts = opt(optionLabels(options, 'portal'))
+  const clsOpts    = opt(optionLabels(options, 'classification'))
+  const procOpts   = opt(optionLabels(options, 'procurement'))
+  const typeOpts   = opt(optionLabels(options, 'opp_type'))
+  const prioOpts   = opt(['Low', 'Medium', 'High', 'Critical'])
+  const statusOpts = opt(Object.keys(STATUS))
+  const resultOpts: SelectOption[] = [
+    { value: '', label: 'In progress' }, { value: 'Awarded', label: 'Awarded' },
+    { value: 'Lost', label: 'Lost' }, { value: 'Cancelled', label: 'Cancelled' },
+  ]
+  const boolOpts: SelectOption[] = [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }]
+  const siteVisitOpts: SelectOption[] = [
+    { value: 'date', label: 'Date' }, { value: 'tbc', label: 'TBC' }, { value: 'not_required', label: 'Not required' },
+  ]
+  const dateDisplay = (d: string) => d ? fmtDate(d, { year: true }) : '—'
+
+  const removeOpp = () => {
+    if (!confirm('Delete this opportunity? This cannot be undone.')) return
+    deleteOpp(o.id)
+    flash('Opportunity deleted')
+    router.push('/opportunities')
+  }
 
   const setStatus = (status: string) => { updateOpp(o.id, { status } as Parameters<typeof updateOpp>[1]); flash('Status → ' + status) }
 
@@ -145,7 +171,10 @@ export default function OpportunityDetailPage() {
               </span>
             )}
           </div>
-          <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: '-0.025em', margin: '0 0 12px', lineHeight: 1.2 }}>{o.title}</h1>
+          <div style={{ margin: '0 0 12px' }}>
+            <EditableField label="" value={o.title} onCommit={v => { if (v.trim()) upd({ title: v }) }}
+              display={<span style={{ fontSize: 25, fontWeight: 800, letterSpacing: '-0.025em', lineHeight: 1.2 }}>{o.title}</span>} />
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', marginBottom: 22 }}>
             <MetaItem icon="building" label={client?.name ?? '—'} />
             <MetaItem icon="inbox" label={o.portal} />
@@ -166,55 +195,57 @@ export default function OpportunityDetailPage() {
             )}
           </div>
 
-          <Section icon="opps" title="Overview">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14 }}>
-              <Field label="Classification" value={o.cls} />
-              <Field label="Procurement" value={o.proc} />
-              <Field label="Reviewer" value={byId(o.reviewer)?.name ?? '—'} />
-              <Field label="Est. value" value={money(o.value)} mono />
-              <Field label="Result" value={o.result || 'In progress'} />
-              <Field label="Last updated" value={fmtDate(o.updated, { year: true })} />
+          <Section icon="opps" title="Overview" hint="click any value to edit">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+              <EditableField label="Reference" value={o.ref} mono onCommit={v => upd({ ref: v })} />
+              <EditableField label="RFP number" value={o.rfpNumber} placeholder="—" onCommit={v => upd({ rfpNumber: v })} />
+              <EditableField label="Type" type="select" value={o.type} options={typeOpts} onCommit={v => upd({ type: v as OppType })} />
+              <EditableField label="Client" type="select" value={o.client} options={clientOpts} display={client?.name ?? '—'} onCommit={v => upd({ client: v })} />
+              <EditableField label="Portal" type="select" value={o.portal} options={portalOpts} onCommit={v => upd({ portal: v })} />
+              <EditableField label="Classification" type="select" value={o.cls} options={clsOpts} onCommit={v => upd({ cls: v })} />
+              <EditableField label="Procurement" type="select" value={o.proc} options={procOpts} onCommit={v => upd({ proc: v })} />
+              <EditableField label="Priority" type="select" value={o.priority} options={prioOpts} onCommit={v => upd({ priority: v as Priority })} />
+              <EditableField label="Status" type="select" value={o.status} options={statusOpts} onCommit={v => upd({ status: v as StatusKey })} />
+              <EditableField label="Owner" type="select" value={o.owner} options={personOpts} display={byId(o.owner)?.name ?? 'Unassigned'} onCommit={v => upd({ owner: v })} />
+              <EditableField label="Reviewer" type="select" value={o.reviewer} options={personOpts} display={byId(o.reviewer)?.name ?? '—'} onCommit={v => upd({ reviewer: v })} />
+              <EditableField label="Est. value (AED)" type="number" value={o.value ? String(o.value) : ''} mono display={money(o.value)} onCommit={v => upd({ value: Number(v) || 0 })} />
+              <EditableField label="Contract duration" value={o.contractDuration} placeholder="e.g. 26 months" onCommit={v => upd({ contractDuration: v })} />
+              <EditableField label="Partner involved" type="select" value={o.partnerInvolved ? 'yes' : 'no'} options={boolOpts} display={o.partnerInvolved ? 'Yes' : 'No'} onCommit={v => upd({ partnerInvolved: v === 'yes' })} />
+              {o.partnerInvolved && (
+                <EditableField label="Partner name" value={o.partnerName} placeholder="—" onCommit={v => upd({ partnerName: v })} />
+              )}
+              <EditableField label="Result" type="select" value={o.result} options={resultOpts} display={o.result || 'In progress'} onCommit={v => upd({ result: v as Result })} />
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 4 }}>Last updated</div>
+                <div className="mono" style={{ fontSize: 13.5, fontWeight: 600, padding: '5px 0' }}>{fmtDate(o.updated, { year: true })}</div>
+              </div>
             </div>
           </Section>
 
           <Section icon="calendar" title="Dates & Deadlines">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 0 }}>
-              {([
-                ['RFP received',     'rfpReceived'],
-                ['Site visit',       'siteVisit'],
-                ['Question deadline','qDeadline'],
-                ['Bid due',          'bidDue'],
-                ['Submission',       'submission'],
-                ['Next follow-up',   'followUp'],
-              ] as [string, string][]).map(([l, k], i) => {
-                const dv = (o as unknown as Record<string,unknown>)[k] as string
-                const dr = relDue(dv)
-                return (
-                  <div key={k} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 4px', borderBottom: i < 4 ? '1px solid var(--bf-border-2)' : 'none' }}>
-                    <span style={{ fontSize: 13, color: 'var(--bf-text-2)' }}>{l}</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className="mono" style={{ fontSize: 12.5, fontWeight: 500 }}>{dv ? fmtDate(dv, { year: true }) : '—'}</span>
-                      {dv && k !== 'rfpReceived' && k !== 'submission' && dr.tone !== 'none' && (
-                        <span style={{
-                          fontSize: 10.5, padding: '2px 7px', borderRadius: 99, height: 19,
-                          background: 'transparent',
-                          border: `1px solid ${dr.tone === 'danger' ? 'var(--bf-danger)' : 'var(--bf-warn)'}`,
-                          color: dr.tone === 'danger' ? 'var(--bf-danger)' : 'var(--bf-warn)',
-                        }}>{dr.label}</span>
-                      )}
-                    </span>
-                  </div>
-                )
-              })}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+              <EditableField label="RFP received" type="date" value={o.rfpReceived} mono display={dateDisplay(o.rfpReceived)} onCommit={v => upd({ rfpReceived: v })} />
+              <EditableField label="Site visit" type="select" value={o.siteVisitMode} options={siteVisitOpts}
+                display={o.siteVisitMode === 'date' ? (o.siteVisit ? fmtDate(o.siteVisit, { year: true }) : 'Date — TBD') : o.siteVisitMode === 'tbc' ? 'TBC' : 'Not required'}
+                onCommit={v => upd({ siteVisitMode: v as SiteVisitMode })} />
+              {o.siteVisitMode === 'date' && (
+                <EditableField label="Site visit date" type="date" value={o.siteVisit} mono display={dateDisplay(o.siteVisit)} onCommit={v => upd({ siteVisit: v })} />
+              )}
+              <EditableField label="Question deadline" type="date" value={o.qDeadline} mono display={dateDisplay(o.qDeadline)} onCommit={v => upd({ qDeadline: v })} />
+              <EditableField label="Q. deadline time" type="time" value={o.qDeadlineTime} mono placeholder="—" onCommit={v => upd({ qDeadlineTime: v })} />
+              <EditableField label="Bid due" type="date" value={o.bidDue} mono display={dateDisplay(o.bidDue)} onCommit={v => upd({ bidDue: v })} />
+              <EditableField label="Bid due time" type="time" value={o.bidDueTime} mono placeholder="—" onCommit={v => upd({ bidDueTime: v })} />
+              <EditableField label="Submission" type="date" value={o.submission} mono display={dateDisplay(o.submission)} onCommit={v => upd({ submission: v })} />
+              <EditableField label="Next follow-up" type="date" value={o.followUp} mono display={dateDisplay(o.followUp)} onCommit={v => upd({ followUp: v })} />
             </div>
           </Section>
 
           <Section icon="shield" title="Commercial & Bid Bond">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
-              <Field label="Bond required" value={o.bondReq ? 'Yes' : 'No'} />
-              <Field label="Bond %" value={o.bondPct ? o.bondPct + '%' : '—'} mono />
-              <Field label="Bond validity" value={o.bondValidity ? fmtDate(o.bondValidity, { year: true }) : '—'} mono />
-              <Field label="Est. value" value={money(o.value, true)} mono />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+              <EditableField label="Bond required" type="select" value={o.bondReq ? 'yes' : 'no'} options={boolOpts} display={o.bondReq ? 'Yes' : 'No'} onCommit={v => upd({ bondReq: v === 'yes' })} />
+              <EditableField label="Bond %" type="number" value={o.bondPct ? String(o.bondPct) : ''} mono display={o.bondPct ? o.bondPct + '%' : '—'} onCommit={v => upd({ bondPct: Number(v) || 0 })} />
+              <EditableField label="Bond validity (days)" type="number" value={o.bondValidityDays != null ? String(o.bondValidityDays) : ''} mono display={o.bondValidityDays != null ? o.bondValidityDays + ' days' : '—'} onCommit={v => upd({ bondValidityDays: v ? Number(v) : null })} />
+              <EditableField label="Bond expiry date" type="date" value={o.bondValidity} mono display={dateDisplay(o.bondValidity)} onCommit={v => upd({ bondValidity: v })} />
             </div>
           </Section>
 
@@ -263,27 +294,7 @@ export default function OpportunityDetailPage() {
           </Section>
 
           <Section icon="folder" title="Documents & Links" hint="links only — files stay in your folders">
-            <div style={{ display: 'grid', gap: 8 }}>
-              {o.documents.map((d, i) => {
-                const iconName = d.type === 'folder' ? 'folder' : d.type === 'sheet' ? 'sheet' : 'file'
-                return (
-                  <button key={i} onClick={() => flash('Opens linked document (demo)')} className="bf-hoverlift"
-                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 13px', border: '1px solid var(--bf-border)', borderRadius: 11, background: 'var(--bf-surface)', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-                    <span style={{ width: 32, height: 32, borderRadius: 8, display: 'grid', placeItems: 'center', background: 'var(--bf-surface-3)', color: 'var(--bf-text-2)', flexShrink: 0 }}>
-                      <Icon name={iconName} size={17} />
-                    </span>
-                    <span style={{ flex: 1 }}>
-                      <span style={{ display: 'block', fontWeight: 600, fontSize: 13 }}>{d.name}</span>
-                      <span style={{ fontSize: 11.5, color: 'var(--bf-text-faint)' }}>{d.meta}</span>
-                    </span>
-                    <Icon name="ext" size={15} style={{ color: 'var(--bf-text-faint)' }} />
-                  </button>
-                )
-              })}
-              <button className="bf-btn bf-btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => flash('Add document link (demo)')}>
-                <Icon name="link" size={14} />Add document link
-              </button>
-            </div>
+            <DocumentsSection opp={o} />
           </Section>
 
           <Section icon="edit" title="Notes">
@@ -359,15 +370,19 @@ export default function OpportunityDetailPage() {
                 <Icon name={a.icon} size={16} />{a.label}
               </button>
             ))}
-            <button className="bf-btn" onClick={() => flash('Add follow-up (demo)')} style={{ justifyContent: 'flex-start' }}>
-              <Icon name="calendarPlus" size={16} />Add Follow-up
+            <button className="bf-btn" onClick={removeOpp}
+              style={{ justifyContent: 'flex-start', color: 'var(--bf-danger)', borderColor: 'var(--bf-danger)' }}>
+              <Icon name="trash" size={16} />Delete opportunity
             </button>
           </div>
         </div>
 
-        {/* upcoming reminders */}
+        {/* reminders (real, opp-linked) */}
+        <OppReminders oppId={o.id} theme={theme} />
+
+        {/* key dates (derived from the opportunity's deadline fields) */}
         <div className="bf-card bf-card-pad" style={{ marginBottom: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Upcoming reminders</div>
+          <div className="eyebrow" style={{ marginBottom: 10 }}>Key dates</div>
           {reminders.length
             ? reminders.map((r, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 0' }}>

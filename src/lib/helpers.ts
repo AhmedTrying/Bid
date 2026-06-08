@@ -17,6 +17,13 @@ export function fmtDate(s: string, opts?: { year?: boolean }): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}${opts?.year ? ' ' + String(d.getFullYear()).slice(2) : ''}`
 }
 
+/** Format a date string with an optional 'HH:mm' time, e.g. "6 Jun · 14:30". */
+export function fmtDateTime(s: string, time?: string, opts?: { year?: boolean }): string {
+  const d = fmtDate(s, opts)
+  if (d === '—') return d
+  return time ? `${d} · ${time}` : d
+}
+
 export function daysBetween(a: string, b: string): number | null {
   const A = parseDate(a), B = parseDate(b)
   if (!A || !B) return null
