@@ -3,11 +3,13 @@
 _Prepared 2026-06-08. Originally a snapshot at commit `00e4dd8`; updated same day
 after the Excel-parity + Neon work (see "2026-06-08 update" below)._
 
-## 2026-06-08 update — Excel-parity + Neon persistence (uncommitted working tree)
+## 2026-06-08 update — Excel-parity + Neon persistence (shipped)
 
 The app was upgraded from a read-mostly demo to a usable Excel-replacement that
-persists to Neon Postgres. **All of this is in the working tree, not yet committed,
-and not yet built/run** (Node isn't installed on this machine — see prerequisite).
+persists to Neon Postgres. **Committed as `a777897` and pushed to `origin/main`;
+`npm run build` passes clean; the Neon DB is migrated (`prisma db push`) and
+seeded.** Vercel needs `DATABASE_URL` (+ `DIRECT_URL`) set in its env vars to
+connect at runtime.
 
 **What changed (by area):**
 - **Persistence is now real.** Data flows through API routes to Postgres when
@@ -46,10 +48,11 @@ and not yet built/run** (Node isn't installed on this machine — see prerequisi
 - **Seed** (`prisma/seed.ts`): also seeds option lists, document links, and 3
   sample reminders.
 
-**To run it (needs Node 20+ installed first):**
-`npm install` → set `.env` (`DATABASE_URL` + `DIRECT_URL`, already created) →
-`npx prisma db push` → `npm run db:seed` → `npm run dev`. Then `npm run build`
-to typecheck. **None of these have been run yet — verify before relying on it.**
+**Local dev (Node required):** this machine had no system Node, so a portable
+Node 24 LTS was unzipped to `~/bidflow-node` — prepend
+`C:\Users\<you>\bidflow-node\node-v24.16.0-win-x64` to PATH to use `npm`/`npx`,
+or just install Node normally. Run order (already done once): `npm install` →
+`.env` set → `npx prisma db push` → `npm run db:seed` → `npm run dev`.
 
 The architecture notes below predate this update but remain broadly accurate
 (the data layer is now active rather than scaffolded).
