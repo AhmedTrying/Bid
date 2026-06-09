@@ -1,13 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useStore } from '@/lib/store'
 import { ACCENTS } from '@/lib/helpers'
 import { TEAM } from '@/lib/data'
+import { roleLabel } from '@/lib/roleService'
 import { Icon } from '@/components/ui/icon'
 import { Avatar } from '@/components/ui/avatar'
 import { EditableList } from '@/components/app/editable-list'
+import type { AuthUser } from '@/lib/types'
 
 const TABS = [
   { id: 'general',    label: 'General',    icon: 'settings' },
@@ -31,6 +33,15 @@ export default function SettingsPage() {
   const flash      = useStore(s => s.flash)
   const opps       = useStore(s => s.opps)
   const clients    = useStore(s => s.clients)
+
+  // Live users (so roles match Manage Users, not the static seed)
+  const [users, setUsers] = useState<AuthUser[]>([])
+  useEffect(() => {
+    fetch('/api/users').then(r => r.json()).then(j => setUsers(j.users ?? [])).catch(() => {})
+  }, [])
+  const teamRows = users.length
+    ? users.map(u => ({ id: u.id, name: u.name, roleText: roleLabel(u.roleKey), active: u.active }))
+    : TEAM.map(t => ({ id: t.id, name: t.name, roleText: roleLabel(t.roleKey ?? 'bd_manager'), active: true }))
 
   return (
     <div className="bf-canvas-pad" style={{ animation: 'bf-rise-up .4s cubic-bezier(.2,.8,.2,1)', maxWidth: 900 }}>
@@ -145,14 +156,13 @@ export default function SettingsPage() {
           {tab === 'team' && (
             <Section title="Team members">
               <div style={{ display: 'grid', gap: 10 }}>
-                {TEAM.map(t => (
+                {teamRows.map(t => (
                   <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 0', borderBottom: '1px solid var(--bf-border-2)' }}>
                     <Avatar person={t.id} size={36} theme={theme} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 650, fontSize: 14 }}>{t.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--bf-text-2)' }}>{t.role}</div>
+                      <div style={{ fontWeight: 650, fontSize: 14 }}>{t.name}{!t.active && <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--bf-text-faint)' }}>(disabled)</span>}</div>
+                      <div style={{ fontSize: 12, color: 'var(--bf-text-2)' }}>{t.roleText}</div>
                     </div>
-                    <span style={{ fontSize: 12, color: 'var(--bf-text-faint)', fontFamily: 'monospace' }}>{t.id}</span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--bf-text-2)' }}>{opps.filter(o => o.owner === t.id).length} opps</span>
                   </div>
                 ))}

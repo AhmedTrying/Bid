@@ -186,7 +186,10 @@ export default function OpportunitiesPage() {
   const theme      = useStore(s => s.theme)
   const updateOpp  = useStore(s => s.updateOpp)
   const flash      = useStore(s => s.flash)
+  const me         = useStore(s => s.currentUser)
   const router     = useRouter()
+  // "My work" filters by the signed-in user (not a hardcoded id).
+  const vf = (v: typeof VIEWS[number]) => v.id === 'mine' ? (o: Opportunity) => o.owner === me.id : v.f
 
   const [view,         setView]         = useState('all')
   const [q,            setQ]            = useState('')
@@ -209,7 +212,7 @@ export default function OpportunitiesPage() {
   const visibleCols = COLS.filter(c => !hidden[c.key])
 
   const rows = useMemo(() => {
-    let r = opps.filter(activeView.f).filter(o => {
+    let r = opps.filter(vf(activeView)).filter(o => {
       if (statusFilter !== 'all' && o.status !== statusFilter) return false
       if (q) {
         const s = q.toLowerCase()
@@ -299,7 +302,7 @@ export default function OpportunitiesPage() {
               color: view === v.id ? 'var(--bf-text)' : 'var(--bf-text-3)', whiteSpace: 'nowrap',
             }}>
             <Icon name={v.icon} size={15} />{v.label}
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--bf-text-faint)' }}>{opps.filter(v.f).length}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--bf-text-faint)' }}>{opps.filter(vf(v)).length}</span>
           </button>
         ))}
         <div style={{ marginLeft: 4 }}>

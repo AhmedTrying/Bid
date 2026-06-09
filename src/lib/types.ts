@@ -62,6 +62,7 @@ export interface AuthUser {
   init: string
   hue: number
   active: boolean
+  permissions?: Permission[] | null  // per-user override; null = role defaults
 }
 
 export interface TeamMember {
@@ -73,6 +74,7 @@ export interface TeamMember {
   email?: string
   group?: TeamGroup
   roleKey?: RoleKey
+  permissions?: Permission[] | null  // per-user override; null = use role defaults
 }
 
 export interface Client {

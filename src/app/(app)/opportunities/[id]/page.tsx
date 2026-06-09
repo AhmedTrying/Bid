@@ -13,7 +13,7 @@ import { StatusBadge, PriorityBadge, TypePill } from '@/components/ui/badges'
 import { EditableField, type SelectOption } from '@/components/app/inline-field'
 import { DocumentsSection } from '@/components/app/documents-section'
 import { OppReminders } from '@/components/app/opp-reminders'
-import { can } from '@/lib/permissionService'
+import { userCan } from '@/lib/permissionService'
 import type { Opportunity, OppType, Priority, Result, StatusKey, SiteVisitMode } from '@/lib/types'
 
 // ── Donut chart ───────────────────────────────────────────────────────────────
@@ -75,7 +75,7 @@ export default function OpportunityDetailPage() {
   const options   = useStore(s => s.options)
   const changes   = useStore(s => s.changes)
   const me        = useStore(s => s.currentUser)
-  const canDelete = can(me.roleKey, 'delete_archive')
+  const canDelete = userCan(me, 'delete_archive')
 
   const o = opps.find(x => x.id === id)
 

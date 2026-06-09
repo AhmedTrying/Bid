@@ -12,6 +12,8 @@ export default function HomePage() {
   const opps   = useStore(s => s.opps)
   const theme  = useStore(s => s.theme)
   const flash  = useStore(s => s.flash)
+  const me     = useStore(s => s.currentUser)
+  const firstName = (me.name || 'there').split(' ')[0]
 
   const m = useMemo(() => {
     const inMonth  = (s: string) => s && s.slice(0, 7) === '2026-06'
@@ -81,7 +83,7 @@ export default function HomePage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 14 }}>
         <div>
           <div className="eyebrow" style={{ marginBottom: 6 }}>{fmtDate(TODAY, { year: true })} · Thursday</div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: 0 }}>{greeting}, Layla 👋</h1>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.025em', margin: 0 }}>{greeting}, {firstName} 👋</h1>
           <p style={{ margin: '6px 0 0', fontSize: 14, color: 'var(--bf-text-2)' }}>
             You have <strong style={{ color: 'var(--bf-text)' }}>{m.dueWeek} submissions</strong> due this week and{' '}
             <strong style={{ color: m.overdueFollow ? 'var(--bf-danger)' : 'var(--bf-text)' }}>{m.overdueFollow} follow-ups</strong> to chase.

@@ -3,20 +3,21 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useStore } from '@/lib/store'
-import { can } from '@/lib/permissionService'
+import { userCan, effectivePermissions, ALL_PERMISSIONS, PERMISSION_LABELS } from '@/lib/permissionService'
 import { ROLE_KEYS, roleLabel } from '@/lib/roleService'
 import { TEAM_GROUPS } from '@/lib/data'
 import { Icon } from '@/components/ui/icon'
 import { Avatar } from '@/components/ui/avatar'
-import type { AuthUser, RoleKey, TeamGroup } from '@/lib/types'
+import type { AuthUser, RoleKey, TeamGroup, Permission } from '@/lib/types'
 
 export default function UsersPage() {
   const me    = useStore(s => s.currentUser)
   const theme = useStore(s => s.theme)
   const flash = useStore(s => s.flash)
-  const allowed = can(me.roleKey, 'manage_users')
+  const allowed = userCan(me, 'manage_users')
 
   const [users, setUsers] = useState<AuthUser[]>([])
+  const [permsFor, setPermsFor] = useState<string | null>(null) // user id whose permissions panel is open
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', roleKey: 'tender_coordinator' as RoleKey, group: 'Proposal Team' as TeamGroup, password: 'bidflow123' })
 
@@ -32,6 +33,16 @@ export default function UsersPage() {
     try { await fetch(`/api/users/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) } catch { /* */ }
     flash('User updated')
   }
+  const setPerms = async (id: string, permissions: Permission[] | null) => {
+    setUsers(us => us.map(u => u.id === id ? { ...u, permissions } : u))
+    try { await fetch(`/api/users/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ permissions }) }) } catch { /* */ }
+  }
+  const togglePerm = (u: AuthUser, p: Permission) => {
+    const eff = effectivePermissions({ roleKey: u.roleKey, permissions: u.permissions })
+    const next = eff.includes(p) ? eff.filter(x => x !== p) : [...eff, p]
+    setPerms(u.id, next)
+  }
+
   const remove = async (id: string) => {
     if (!confirm('Remove this user?')) return
     setUsers(us => us.filter(u => u.id !== id))
@@ -87,38 +98,78 @@ export default function UsersPage() {
             <th style={{ paddingLeft: 16 }}>User</th><th>Role</th><th>Group</th><th>Status</th><th></th>
           </tr></thead>
           <tbody>
-            {users.map(u => (
-              <tr key={u.id}>
-                <td style={{ paddingLeft: 16 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Avatar person={u.id} size={28} theme={theme} />
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</div>
-                      <div style={{ fontSize: 11.5, color: 'var(--bf-text-faint)' }}>{u.email}</div>
+            {users.flatMap(u => {
+              const isAdmin = u.roleKey === 'admin'
+              const custom = u.permissions != null
+              const open = permsFor === u.id
+              const eff = effectivePermissions({ roleKey: u.roleKey, permissions: u.permissions })
+              return [
+                <tr key={u.id}>
+                  <td style={{ paddingLeft: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Avatar person={u.id} size={28} theme={theme} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--bf-text-faint)' }}>{u.email}</div>
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <select className="bf-select" value={u.roleKey} onChange={e => patch(u.id, { roleKey: e.target.value })} style={{ height: 32, fontSize: 12.5 }}>
-                    {ROLE_KEYS.map(k => <option key={k} value={k}>{roleLabel(k)}</option>)}
-                  </select>
-                </td>
-                <td style={{ fontSize: 12.5, color: 'var(--bf-text-2)' }}>{u.group || '—'}</td>
-                <td>
-                  <button className="bf-btn bf-btn-sm" onClick={() => patch(u.id, { active: !u.active })}
-                    style={{ color: u.active ? 'var(--bf-good)' : 'var(--bf-text-faint)' }}>
-                    <Icon name={u.active ? 'checkCircle' : 'x'} size={13} />{u.active ? 'Active' : 'Disabled'}
-                  </button>
-                </td>
-                <td style={{ textAlign: 'right', paddingRight: 12 }}>
-                  {u.id !== me.id && (
-                    <button className="bf-btn bf-btn-icon bf-btn-ghost" title="Remove" onClick={() => remove(u.id)}>
-                      <Icon name="trash" size={14} />
+                  </td>
+                  <td>
+                    <select className="bf-select" value={u.roleKey} onChange={e => patch(u.id, { roleKey: e.target.value })} style={{ height: 32, fontSize: 12.5 }}>
+                      {ROLE_KEYS.map(k => <option key={k} value={k}>{roleLabel(k)}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ fontSize: 12.5, color: 'var(--bf-text-2)' }}>{u.group || '—'}</td>
+                  <td>
+                    <button className="bf-btn bf-btn-sm" onClick={() => patch(u.id, { active: !u.active })}
+                      style={{ color: u.active ? 'var(--bf-good)' : 'var(--bf-text-faint)' }}>
+                      <Icon name={u.active ? 'checkCircle' : 'x'} size={13} />{u.active ? 'Active' : 'Disabled'}
                     </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td style={{ textAlign: 'right', paddingRight: 12, whiteSpace: 'nowrap' }}>
+                    <button className="bf-btn bf-btn-sm" onClick={() => setPermsFor(open ? null : u.id)}
+                      title="Edit permissions" style={{ color: custom ? 'var(--bf-accent-text)' : undefined }}>
+                      <Icon name="shield" size={13} />{custom ? 'Custom' : 'Permissions'}
+                    </button>
+                    {u.id !== me.id && (
+                      <button className="bf-btn bf-btn-icon bf-btn-ghost" title="Remove" onClick={() => remove(u.id)} style={{ marginLeft: 4 }}>
+                        <Icon name="trash" size={14} />
+                      </button>
+                    )}
+                  </td>
+                </tr>,
+                open ? (
+                  <tr key={u.id + '-perms'}>
+                    <td colSpan={5} style={{ background: 'var(--bf-surface-2)', padding: '14px 16px' }}>
+                      {isAdmin ? (
+                        <div style={{ fontSize: 12.5, color: 'var(--bf-text-2)' }}>Admins always have full access — permissions can’t be restricted.</div>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+                              Permissions for {u.name} {custom ? <span style={{ color: 'var(--bf-accent-text)' }}>(custom)</span> : <span style={{ color: 'var(--bf-text-faint)' }}>(from {roleLabel(u.roleKey)} role)</span>}
+                            </span>
+                            {custom && (
+                              <button className="bf-btn bf-btn-sm bf-btn-ghost" style={{ marginLeft: 'auto' }} onClick={() => { setPerms(u.id, null); flash('Reset to role permissions') }}>
+                                <Icon name="refresh" size={13} />Reset to role
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 18px' }}>
+                            {ALL_PERMISSIONS.map(p => (
+                              <label key={p} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={eff.includes(p)} onChange={() => togglePerm(u, p)} />
+                                <span>{PERMISSION_LABELS[p]}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ) : null,
+              ]
+            })}
           </tbody>
         </table>
       </div>

@@ -2,7 +2,8 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { useStore } from '@/lib/store'
-import { normalizeImportedRow, type RawRow } from '@/lib/excelTemplate'
+import { normalizeImportedRow, CSV_COLUMNS, rowsToCSV, csvToRawRows, type RawRow } from '@/lib/excelTemplate'
+import { byId } from '@/lib/data'
 import { Icon } from '@/components/ui/icon'
 import type { Opportunity } from '@/lib/types'
 
@@ -78,6 +79,27 @@ export default function ExcelSyncPage() {
   }), [preview])
 
   // ── Actions ─────────────────────────────────────────────────────────────────
+  // CSV export (client-side — the stable, plain-text format)
+  const csvValue = (field: keyof Opportunity, o: Opportunity): string | number => {
+    if (field === 'client') return clients.find(c => c.id === o.client)?.name ?? ''
+    if (field === 'owner' || field === 'reviewer') return byId(o[field] as string)?.name ?? ''
+    const v = o[field]
+    return v == null ? '' : (typeof v === 'number' ? v : String(v))
+  }
+  const doExportCSV = () => {
+    const header = CSV_COLUMNS.map(c => c.header)
+    const rows: (string | number)[][] = [header, ...opps.map(o => CSV_COLUMNS.map(c => csvValue(c.field, o)))]
+    const csv = rowsToCSV(rows)
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }) // BOM so Excel opens it cleanly
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = 'BidFlow_Tracker.csv'
+    a.click()
+    URL.revokeObjectURL(a.href)
+    recordExport(opps.length)
+    flash('Exported successfully — CSV downloading')
+  }
+
   const doExport = async () => {
     setBusy('export')
     try {
@@ -105,13 +127,20 @@ export default function ExcelSyncPage() {
     if (!file) return
     setBusy('import'); setFileName(file.name)
     try {
-      const form = new FormData()
-      form.append('file', file)
-      const res = await fetch('/api/excel/import', { method: 'POST', body: form })
-      if (!res.ok) throw new Error('parse failed')
-      const j = (await res.json()) as ParseResult
-      setParsed(j)
-      flash(`Read ${j.totalRows} rows — review the changes below`)
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        const text = await file.text()
+        const { rows, errors } = csvToRawRows(text)
+        setParsed({ sheets: [{ sheet: 'CSV', rows }], errors, totalRows: rows.length })
+        flash(`Read ${rows.length} rows — review the changes below`)
+      } else {
+        const form = new FormData()
+        form.append('file', file)
+        const res = await fetch('/api/excel/import', { method: 'POST', body: form })
+        if (!res.ok) throw new Error('parse failed')
+        const j = (await res.json()) as ParseResult
+        setParsed(j)
+        flash(`Read ${j.totalRows} rows — review the changes below`)
+      }
     } catch {
       flash('Some rows need attention — could not read that file')
       setParsed(null)
@@ -136,7 +165,7 @@ export default function ExcelSyncPage() {
 
   return (
     <div className="bf-canvas-pad" style={{ animation: 'bf-rise-up .4s cubic-bezier(.2,.8,.2,1)' }}>
-      <input ref={fileRef} type="file" accept=".xlsx" style={{ display: 'none' }} onChange={onPickFile} />
+      <input ref={fileRef} type="file" accept=".csv,.xlsx" style={{ display: 'none' }} onChange={onPickFile} />
 
       <div style={{ marginBottom: 18 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.025em', margin: 0 }}>Excel Sync</h1>
@@ -158,22 +187,26 @@ export default function ExcelSyncPage() {
       </div>
 
       {/* actions */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+        <button className="bf-btn bf-btn-primary" onClick={doExportCSV} disabled={busy !== ''}>
+          <Icon name="download" size={16} />Export CSV
+        </button>
         <button className="bf-btn bf-btn-primary" onClick={() => fileRef.current?.click()} disabled={busy !== ''}>
-          <Icon name="upload" size={16} />Import Excel Tracker
+          <Icon name="upload" size={16} />Import CSV or Excel
         </button>
         <button className="bf-btn" onClick={doExport} disabled={busy !== ''}>
-          <Icon name="download" size={16} />{busy === 'export' ? 'Preparing…' : 'Export Updated Excel'}
-        </button>
-        <button className="bf-btn" onClick={doExport} disabled={busy !== ''}>
-          <Icon name="download" size={16} />Download Last Export
+          <Icon name="table" size={16} />{busy === 'export' ? 'Preparing…' : 'Export styled Excel'}
         </button>
         {parsed && parsed.errors.length > 0 && (
           <button className="bf-btn" onClick={() => setShowErrors(s => !s)} style={{ color: 'var(--bf-danger)', borderColor: 'var(--bf-danger)' }}>
-            <Icon name="alert" size={16} />View Import Errors ({parsed.errors.length})
+            <Icon name="alert" size={16} />View import errors ({parsed.errors.length})
           </button>
         )}
       </div>
+      <p style={{ fontSize: 12, color: 'var(--bf-text-faint)', margin: '0 0 18px' }}>
+        <strong style={{ color: 'var(--bf-text-2)' }}>CSV</strong> is the simplest, most reliable format — opens in Excel, Google Sheets or any editor.
+        The styled Excel option fills the SATCO template across its sheets.
+      </p>
 
       {/* import preview */}
       {parsed && (

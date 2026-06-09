@@ -62,3 +62,23 @@ export function can(role: RoleKey | undefined | null, p: Permission): boolean {
 export function permissionsFor(role: RoleKey): Permission[] {
   return role === 'admin' ? ALL_PERMISSIONS : (ROLE_PERMISSIONS[role] ?? [])
 }
+
+// Per-user permission check: a custom override (if present) wins; otherwise the
+// role's default set. Admins always have full access (avoids self-lockout).
+export function userCan(
+  user: { roleKey?: RoleKey | null; permissions?: Permission[] | null } | null | undefined,
+  p: Permission,
+): boolean {
+  if (!user || !user.roleKey) return false
+  if (user.roleKey === 'admin') return true
+  if (user.permissions != null) return user.permissions.includes(p)
+  return can(user.roleKey, p)
+}
+
+// The effective permissions for a user (override or role defaults).
+export function effectivePermissions(
+  user: { roleKey: RoleKey; permissions?: Permission[] | null },
+): Permission[] {
+  if (user.roleKey === 'admin') return ALL_PERMISSIONS
+  return user.permissions != null ? user.permissions : permissionsFor(user.roleKey)
+}

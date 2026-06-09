@@ -2,13 +2,13 @@
 
 import Link from 'next/link'
 import { useStore } from '@/lib/store'
-import { can, permissionsFor, ALL_PERMISSIONS, PERMISSION_LABELS } from '@/lib/permissionService'
+import { userCan, permissionsFor, ALL_PERMISSIONS, PERMISSION_LABELS } from '@/lib/permissionService'
 import { ROLE_KEYS, roleLabel } from '@/lib/roleService'
 import { Icon } from '@/components/ui/icon'
 
 export default function RolesPage() {
   const me = useStore(s => s.currentUser)
-  const allowed = can(me.roleKey, 'manage_roles')
+  const allowed = userCan(me, 'manage_roles')
 
   return (
     <div className="bf-canvas-pad" style={{ animation: 'bf-rise-up .4s cubic-bezier(.2,.8,.2,1)', maxWidth: 980 }}>

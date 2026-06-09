@@ -6,7 +6,7 @@
 
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import { prisma, dbEnabled } from './db'
-import type { AuthUser, RoleKey, TeamGroup } from './types'
+import type { AuthUser, RoleKey, TeamGroup, Permission } from './types'
 
 export const SESSION_COOKIE = 'bf_session'
 const SESSION_DAYS = 7
@@ -30,14 +30,16 @@ export function verifyPassword(pw: string, stored: string): boolean {
 export interface DbUser {
   id: string; name: string; email: string; roleTitle: string
   role: string; group: string; passwordHash: string; active: boolean
-  avatarHue: number; initials: string
+  avatarHue: number; initials: string; permissions: string | null
 }
 
 export function toAuthUser(u: DbUser): AuthUser {
+  let permissions: Permission[] | null = null
+  try { if (u.permissions) permissions = JSON.parse(u.permissions) as Permission[] } catch { permissions = null }
   return {
     id: u.id, name: u.name, email: u.email, roleTitle: u.roleTitle,
     roleKey: (u.role as RoleKey) || 'bd_manager', group: (u.group as TeamGroup) || '',
-    init: u.initials, hue: u.avatarHue, active: u.active,
+    init: u.initials, hue: u.avatarHue, active: u.active, permissions,
   }
 }
 

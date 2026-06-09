@@ -47,6 +47,9 @@ model User {
   // finance, management_viewer, reviewer). `group` is a notification team group.
   role         String   @default("bd_manager")
   group        String   @default("")
+  // Optional per-user permission override (JSON array of permission keys).
+  // null/empty → use the role's default permission set.
+  permissions  String?
   passwordHash String   @default("")
   active       Boolean  @default(true)
   lastLogin    DateTime?

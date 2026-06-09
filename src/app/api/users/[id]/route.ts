@@ -2,16 +2,17 @@ import { NextResponse } from 'next/server'
 import { prisma, dbEnabled } from '@/lib/db'
 import { hashPassword } from '@/lib/authService'
 import { roleLabel } from '@/lib/roleService'
-import type { RoleKey, TeamGroup } from '@/lib/types'
+import type { RoleKey, TeamGroup, Permission } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// PATCH /api/users/[id] — update role / active / name / group / reset password
+// PATCH /api/users/[id] — update role / active / name / group / permissions / reset password
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const b = (await req.json()) as {
-    name?: string; roleKey?: RoleKey; group?: TeamGroup; active?: boolean; password?: string
+    name?: string; roleKey?: RoleKey; group?: TeamGroup; active?: boolean
+    password?: string; permissions?: Permission[] | null
   }
   if (dbEnabled && prisma) {
     const data: Record<string, unknown> = {}
@@ -19,6 +20,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (b.roleKey !== undefined) { data.role = b.roleKey; data.roleTitle = roleLabel(b.roleKey) }
     if (b.group !== undefined) data.group = b.group
     if (b.active !== undefined) data.active = b.active
+    if (b.permissions !== undefined) data.permissions = b.permissions === null ? null : JSON.stringify(b.permissions)
     if (b.password) data.passwordHash = hashPassword(b.password)
     await prisma.user.update({ where: { id }, data })
     return NextResponse.json({ source: 'db', ok: true })

@@ -5,7 +5,7 @@
 // server export/import services and the client Excel Sync page. Easy to adjust.
 
 import type { Opportunity, Client, StatusKey, OppType } from './types'
-import { STATUS, byId } from './data'
+import { STATUS, byId, TEAM } from './data'
 
 // The tracker sheets we read/write (must match the template tab names).
 export const SHEET_NAMES = [
@@ -43,8 +43,11 @@ export const HEADER_FIELD_MAP: Record<string, keyof Opportunity> = {
   'OWNER': 'owner',
   'REVIEWER': 'reviewer',
   'PRIORITY': 'priority',
+  'TYPE': 'type',
   'NOTES': 'notes',
   'RESULT': 'result',
+  'CLOSED LOST NOTES': 'closedReasonNotes', 'CLOSED REASON NOTES': 'closedReasonNotes',
+  'ESTIMATED VALUE SAR': 'value',
   'ESTIMATED VALUE': 'value', 'EST VALUE': 'value', 'VALUE': 'value',
   'AWARD VALUE': 'value', 'CONTRACT VALUE': 'value',
   'REASON': 'closedReasonCategory', 'CLOSED REASON': 'closedReasonCategory',
@@ -120,6 +123,97 @@ export function matchClientId(name: string, clients: Client[]): string | null {
   return partial?.id ?? null
 }
 
+export function matchMemberId(name: string): string | null {
+  const n = normalizeHeader(name)
+  if (!n) return null
+  const exact = TEAM.find(t => normalizeHeader(t.name) === n)
+  if (exact) return exact.id
+  const partial = TEAM.find(t => normalizeHeader(t.name).includes(n))
+  return partial?.id ?? null
+}
+
+// ── CSV (Feature 1, stable plain-text alternative to .xlsx) ───────────────────
+// A single flat sheet with one row per opportunity. Headers reuse HEADER_FIELD_MAP
+// (via normalizeHeader) so the same importer handles CSV and Excel.
+export const CSV_COLUMNS: { header: string; field: keyof Opportunity }[] = [
+  { header: 'SATCO Reference', field: 'ref' },
+  { header: 'Proposal Title', field: 'title' },
+  { header: 'Client', field: 'client' },
+  { header: 'Portal', field: 'portal' },
+  { header: 'Type', field: 'type' },
+  { header: 'Classification', field: 'cls' },
+  { header: 'Procurement Method', field: 'proc' },
+  { header: 'Status', field: 'status' },
+  { header: 'Priority', field: 'priority' },
+  { header: 'Owner', field: 'owner' },
+  { header: 'Reviewer', field: 'reviewer' },
+  { header: 'RFP No.', field: 'rfpNumber' },
+  { header: 'Partner', field: 'partnerName' },
+  { header: 'Contract Duration', field: 'contractDuration' },
+  { header: 'RFP Received Date', field: 'rfpReceived' },
+  { header: 'Site Visit Date', field: 'siteVisit' },
+  { header: 'Question Deadline', field: 'qDeadline' },
+  { header: 'Bid Due Date', field: 'bidDue' },
+  { header: 'Submittal Time', field: 'bidDueTime' },
+  { header: 'Submission Date', field: 'submission' },
+  { header: 'Follow-up Date', field: 'followUp' },
+  { header: 'Bid Bond Percentage', field: 'bondPct' },
+  { header: 'Bid Bond Validity', field: 'bondValidityDays' },
+  { header: 'Result', field: 'result' },
+  { header: 'Estimated Value (SAR)', field: 'value' },
+  { header: 'Closed/Lost Reason', field: 'closedReasonCategory' },
+  { header: 'Closed/Lost Notes', field: 'closedReasonNotes' },
+  { header: 'Notes', field: 'notes' },
+]
+
+export function rowsToCSV(rows: (string | number)[][]): string {
+  return rows.map(r => r.map(cell => {
+    const s = String(cell ?? '')
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+  }).join(',')).join('\r\n')
+}
+
+export function parseCSV(text: string): string[][] {
+  const s = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let inQuotes = false
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (inQuotes) {
+      if (c === '"') {
+        if (s[i + 1] === '"') { field += '"'; i++ } else inQuotes = false
+      } else field += c
+    } else if (c === '"') inQuotes = true
+    else if (c === ',') { row.push(field); field = '' }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = '' }
+    else field += c
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row) }
+  return rows.filter(r => r.some(c => c.trim() !== ''))
+}
+
+// Build raw rows from CSV text, mapping headers to fields (client-side import).
+export function csvToRawRows(text: string): { rows: RawRow[]; errors: { sheet: string; row: number; message: string }[] } {
+  const matrix = parseCSV(text)
+  const errors: { sheet: string; row: number; message: string }[] = []
+  if (matrix.length < 2) return { rows: [], errors }
+  const fields = matrix[0].map(h => HEADER_FIELD_MAP[normalizeHeader(h)] ?? null)
+  const rows: RawRow[] = []
+  for (let r = 1; r < matrix.length; r++) {
+    const cells = matrix[r]
+    const raw: RawRow = {}
+    fields.forEach((f, ci) => { if (f) raw[f] = (cells[ci] ?? '').trim() })
+    if (!raw.ref && !raw.title) continue
+    if (!raw.title || !String(raw.title).trim()) {
+      errors.push({ sheet: 'CSV', row: r + 1, message: `Row ${r + 1}: missing proposal title` })
+    }
+    rows.push(raw)
+  }
+  return { rows, errors }
+}
+
 // A raw row parsed from the workbook (values as strings/numbers/dates).
 export type RawRow = Partial<Record<keyof Opportunity, string | number | null>>
 
@@ -151,11 +245,22 @@ export function normalizeImportedRow(raw: RawRow, clients: Client[]): Normalized
     else warnings.push(`Unrecognised status "${String(raw.status).trim()}"`)
   }
 
-  for (const field of ['cls', 'portal', 'proc', 'title', 'rfpNumber', 'contractDuration',
-    'partnerName', 'notes', 'priority', 'result', 'bidDueTime', 'closedReasonCategory'] as (keyof Opportunity)[]) {
+  for (const field of ['cls', 'portal', 'proc', 'title', 'type', 'rfpNumber', 'contractDuration',
+    'partnerName', 'notes', 'priority', 'result', 'bidDueTime',
+    'closedReasonCategory', 'closedReasonNotes'] as (keyof Opportunity)[]) {
     if (field === 'title') continue
     const v = raw[field]
     if (v != null && String(v).trim()) (patch as Record<string, unknown>)[field] = String(v).trim()
+  }
+
+  // Owner / reviewer come in as names → match to a team member id.
+  for (const field of ['owner', 'reviewer'] as (keyof Opportunity)[]) {
+    const v = raw[field]
+    if (v != null && String(v).trim()) {
+      const mid = matchMemberId(String(v))
+      if (mid) (patch as Record<string, unknown>)[field] = mid
+      else warnings.push(`Unknown ${field} "${String(v).trim()}"`)
+    }
   }
 
   for (const field of DATE_FIELDS) {

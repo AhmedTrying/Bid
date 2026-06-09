@@ -15,6 +15,7 @@ export function authUserToMember(u: AuthUser): TeamMember {
   return {
     id: u.id, name: u.name, role: u.roleTitle, init: u.init, hue: u.hue,
     email: u.email, group: u.group || undefined, roleKey: u.roleKey,
+    permissions: u.permissions ?? null,
   }
 }
 
