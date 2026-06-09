@@ -36,6 +36,8 @@ export function Sidebar() {
   const collapsed = useStore(s => s.sidebarCollapsed)
   const setCollapsed = useStore(s => s.setSidebarCollapsed)
   const theme     = useStore(s => s.theme)
+  const user      = useStore(s => s.currentUser)
+  const logout    = useStore(s => s.logout)
   const pathname  = usePathname()
 
   const counts = useMemo(() => {
@@ -165,11 +167,14 @@ export function Sidebar() {
       <div style={{ borderTop: '1px solid var(--bf-border)', padding: 10 }}>
         {!collapsed ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <Avatar person="lh" size={30} theme={theme} />
+            <Avatar person={user.id} size={30} theme={theme} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontWeight: 650, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Layla Haddad</div>
-              <div style={{ fontSize: 11, color: 'var(--bf-text-faint)' }}>BD Manager</div>
+              <div style={{ fontWeight: 650, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name}</div>
+              <div style={{ fontSize: 11, color: 'var(--bf-text-faint)' }}>{user.role}</div>
             </div>
+            <button className="bf-btn bf-btn-icon bf-btn-ghost" onClick={() => logout()} title="Sign out">
+              <Icon name="logout" size={16} />
+            </button>
             <button
               className="bf-btn bf-btn-icon bf-btn-ghost"
               onClick={() => setCollapsed(true)}

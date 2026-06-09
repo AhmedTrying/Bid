@@ -156,9 +156,14 @@ export default function SettingsPage() {
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--bf-text-2)' }}>{opps.filter(o => o.owner === t.id).length} opps</span>
                   </div>
                 ))}
-                <button className="bf-btn bf-btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => flash('Invite team member — planned')}>
-                  <Icon name="plus" size={14} />Invite member
-                </button>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <Link href="/settings/users" className="bf-btn bf-btn-sm" style={{ textDecoration: 'none' }}>
+                    <Icon name="clients" size={14} />Manage users
+                  </Link>
+                  <Link href="/settings/roles" className="bf-btn bf-btn-sm" style={{ textDecoration: 'none' }}>
+                    <Icon name="shield" size={14} />Roles &amp; permissions
+                  </Link>
+                </div>
               </div>
             </Section>
           )}

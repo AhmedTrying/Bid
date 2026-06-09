@@ -3,6 +3,7 @@
 // has been pushed to Postgres (`npx prisma db push`).
 
 import 'dotenv/config'
+import { randomBytes, scryptSync } from 'node:crypto'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { TEAM, CLIENTS, STATUS, STAGES, SEED_OPPS, OPPS, SEED_CHANGES, buildOptionSeed } from '../src/lib/data'
@@ -10,6 +11,12 @@ import { oppToDbData, changeToDbData } from '../src/lib/db-map'
 import { DEFAULT_NOTIFICATION_RULES } from '../src/lib/notificationRulesService'
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
+
+// Default temporary password for all seeded users (matches authService scrypt format).
+const hashPassword = (pw: string) => {
+  const salt = randomBytes(16).toString('hex')
+  return `${salt}:${scryptSync(pw, salt, 64).toString('hex')}`
+}
 
 async function main() {
   console.log('Seeding database…')
@@ -20,12 +27,13 @@ async function main() {
     const email = t.email ?? `${t.id}@satco.example`
     const role = t.roleKey ?? 'bd_manager'
     const group = t.group ?? ''
+    const passwordHash = hashPassword('bidflow123')
     await prisma.user.upsert({
       where: { id: t.id },
-      update: { name: t.name, roleTitle: t.role, avatarHue: t.hue, initials: t.init, email, role, group },
+      update: { name: t.name, roleTitle: t.role, avatarHue: t.hue, initials: t.init, email, role, group, passwordHash, active: true },
       create: {
         id: t.id, name: t.name, email,
-        roleTitle: t.role, avatarHue: t.hue, initials: t.init, role, group,
+        roleTitle: t.role, avatarHue: t.hue, initials: t.init, role, group, passwordHash, active: true,
       },
     })
   }

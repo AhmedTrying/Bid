@@ -5,8 +5,9 @@ import { persist } from 'zustand/middleware'
 import type {
   Opportunity, Theme, Accent, Density, CardStyle, StatusKey, Stage,
   Client, ListOption, CalendarItem, Document, TeamMember, ChangeEvent,
-  NotificationRule, EmailStatus, SavedView, SavedViewConfig,
+  NotificationRule, EmailStatus, SavedView, SavedViewConfig, AuthUser,
 } from './types'
+import { authUserToMember } from './userService'
 import {
   OPPS, STATUS, TODAY, CLIENTS, OPTIONS, TEAM, SEED_CHANGES,
   CLOSING_STATUSES, setClientRegistry,
@@ -67,8 +68,11 @@ interface AppState {
   savedViews: SavedView[]
   // toast
   toast: string | null
-  // session actions
+  // session actions (Fix 2)
   setCurrentUser: (u: TeamMember) => void
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
+  logout: () => Promise<void>
+  loadCurrentUser: () => Promise<void>
   // appearance actions
   setTheme: (t: Theme) => void
   setAccent: (a: Accent) => void
@@ -178,6 +182,33 @@ export const useStore = create<AppState>()(
       toast: null,
 
       setCurrentUser: (currentUser) => set({ currentUser }),
+
+      login: async (email, password) => {
+        if (typeof window === 'undefined') return { ok: false }
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+          })
+          const j = await res.json() as { user?: AuthUser; error?: string }
+          if (!res.ok || !j.user) return { ok: false, error: j.error || 'Login failed' }
+          set({ currentUser: authUserToMember(j.user) })
+          return { ok: true }
+        } catch { return { ok: false, error: 'Network error — please try again' } }
+      },
+      logout: async () => {
+        try { await fetch('/api/auth/logout', { method: 'POST' }) } catch { /* ignore */ }
+        if (typeof window !== 'undefined') window.location.href = '/login'
+      },
+      loadCurrentUser: async () => {
+        if (typeof window === 'undefined') return
+        try {
+          const res = await fetch('/api/auth/me')
+          if (!res.ok) return
+          const j = await res.json() as { user: AuthUser | null }
+          if (j.user) set({ currentUser: authUserToMember(j.user) })
+        } catch { /* offline */ }
+      },
 
       setTheme: (theme) => set({ theme }),
       setAccent: (accent) => set({ accent }),

@@ -43,6 +43,27 @@ export type RoleKey =
   | 'document_controller' | 'commercial_manager' | 'finance'
   | 'management_viewer' | 'reviewer'
 
+// Granular permissions (Fix 2 / Phase 6).
+export type Permission =
+  | 'manage_users' | 'manage_roles' | 'configure_notifications'
+  | 'import_export' | 'delete_archive'
+  | 'add_opportunities' | 'edit_opportunities' | 'move_status' | 'update_dates'
+  | 'edit_commercial' | 'add_notes_docs' | 'review'
+  | 'view_reports' | 'view_change_history'
+
+// A user as exposed to the client (no password hash).
+export interface AuthUser {
+  id: string
+  name: string
+  email: string
+  roleTitle: string
+  roleKey: RoleKey
+  group: TeamGroup | ''
+  init: string
+  hue: number
+  active: boolean
+}
+
 export interface TeamMember {
   id: string
   name: string
