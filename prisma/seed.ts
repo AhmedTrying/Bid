@@ -7,6 +7,7 @@ import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { TEAM, CLIENTS, STATUS, STAGES, SEED_OPPS, OPPS, SEED_CHANGES, buildOptionSeed } from '../src/lib/data'
 import { oppToDbData, changeToDbData } from '../src/lib/db-map'
+import { DEFAULT_NOTIFICATION_RULES } from '../src/lib/notificationRulesService'
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })
 
@@ -113,6 +114,16 @@ async function main() {
     })
   }
   console.log(`  ✓ ${SEED_CHANGES.length} change events`)
+
+  // Notification rules (idempotent on id)
+  for (const r of DEFAULT_NOTIFICATION_RULES) {
+    await prisma.notificationRule.upsert({
+      where: { id: r.id },
+      update: { field: r.field, label: r.label, isMajor: r.isMajor, allowSkipEmail: r.allowSkipEmail },
+      create: { id: r.id, field: r.field, label: r.label, isMajor: r.isMajor, allowSkipEmail: r.allowSkipEmail },
+    })
+  }
+  console.log(`  ✓ ${DEFAULT_NOTIFICATION_RULES.length} notification rules`)
   console.log('Done.')
 }
 

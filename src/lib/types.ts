@@ -208,6 +208,35 @@ export interface SavedView {
   order: number
 }
 
+// ── Notification rules (Feature 3) ────────────────────────────────────────────
+export interface NotificationRule {
+  id: string
+  field: string          // opportunity field key (or 'status', 'owner', 'deleted')
+  label: string
+  isMajor: boolean       // does changing this field trigger the notify modal?
+  allowSkipEmail: boolean // may the editor choose "Save without email"?
+}
+
+// Recipient shown in the Important-Change modal selector.
+export interface Recipient {
+  id: string
+  name: string
+  role: string
+  email: string
+  group: TeamGroup | ''
+}
+
+// Payload for the email service (Feature 3).
+export interface MajorChangeEmail {
+  oppRef: string
+  oppTitle: string
+  changes: { label: string; oldValue: string; newValue: string }[]
+  userName: string
+  note: string
+  recipientEmails: string[]
+  recipientsSummary: string
+}
+
 export interface Reminder {
   id: string
   kind: 'due' | 'overdue' | 'q' | 'site' | 'follow' | 'bond'

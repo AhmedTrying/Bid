@@ -5,12 +5,28 @@ import { persist } from 'zustand/middleware'
 import type {
   Opportunity, Theme, Accent, Density, CardStyle, StatusKey, Stage,
   Client, ListOption, CalendarItem, Document, TeamMember, ChangeEvent,
+  NotificationRule, EmailStatus,
 } from './types'
 import {
   OPPS, STATUS, TODAY, CLIENTS, OPTIONS, TEAM, SEED_CHANGES,
   CLOSING_STATUSES, setClientRegistry,
 } from './data'
-import { diffOpp, recordCreated, recordDeleted } from './changeHistoryService'
+import {
+  diffOpp, recordCreated, recordDeleted, majorChangesIn, type MajorChange,
+} from './changeHistoryService'
+import { DEFAULT_NOTIFICATION_RULES, ruleMajorPredicate } from './notificationRulesService'
+import { sendMajorChangeEmail } from './notificationService'
+
+// Email metadata attached to the recorded major change(s).
+interface EmailMeta { status: EmailStatus; recipients: string[]; recipientsSummary: string; note: string }
+// Options the modal passes when confirming a major change.
+interface ConfirmMajorOpts {
+  sendEmail: boolean
+  recipientIds: string[]
+  recipientEmails: string[]
+  recipientsSummary: string
+  note: string
+}
 
 // Map stage → default status when dragging into it
 const STAGE_STATUS: Record<Stage, StatusKey> = {
@@ -43,6 +59,10 @@ interface AppState {
   changes: ChangeEvent[]
   // a status change into a closing status, paused until a reason is captured (Fix 3)
   pendingClose: { id: string; patch: Partial<Opportunity> } | null
+  // a major change, paused until the editor confirms notification (Feature 3)
+  pendingMajor: { id: string; patch: Partial<Opportunity>; majors: MajorChange[] } | null
+  // notification rules (Feature 3)
+  notificationRules: NotificationRule[]
   // toast
   toast: string | null
   // session actions
@@ -54,7 +74,7 @@ interface AppState {
   setCardStyle: (c: CardStyle) => void
   setSidebarCollapsed: (v: boolean) => void
   // opportunity actions
-  applyOpp: (id: string, patch: Partial<Opportunity>) => void  // internal: commit + record
+  applyOpp: (id: string, patch: Partial<Opportunity>, opts?: { email?: EmailMeta }) => void  // internal: commit + record
   updateOpp: (id: string, patch: Partial<Opportunity>) => void
   moveStage: (id: string, stage: Stage) => void
   addOpp: (data: Partial<Opportunity>) => Opportunity
@@ -62,6 +82,11 @@ interface AppState {
   // closed/lost reason flow (Fix 3)
   confirmClose: (category: string, notes: string) => void
   cancelClose: () => void
+  // major-change notification flow (Feature 3)
+  commitOrPromptMajor: (id: string, patch: Partial<Opportunity>) => void // internal
+  confirmMajor: (opts: ConfirmMajorOpts) => Promise<EmailStatus | null>
+  cancelMajor: () => void
+  setNotificationRule: (id: string, patch: Partial<NotificationRule>) => void
   // change history (Feature 2)
   recordChange: (e: ChangeEvent | ChangeEvent[]) => void
   // client actions
@@ -119,6 +144,8 @@ export const useStore = create<AppState>()(
       currentUser: TEAM[0], // seeded default (Layla Haddad) until login wires a real user
       changes: SEED_CHANGES.map(c => ({ ...c })),
       pendingClose: null,
+      pendingMajor: null,
+      notificationRules: DEFAULT_NOTIFICATION_RULES.map(r => ({ ...r })),
       toast: null,
 
       setCurrentUser: (currentUser) => set({ currentUser }),
@@ -140,7 +167,7 @@ export const useStore = create<AppState>()(
       // ── Opportunities ─────────────────────────────────────────────────────
       // Commit a patch to an opportunity, persist it, and record the diff in
       // change history. (Internal — `updateOpp` may pause for a reason first.)
-      applyOpp: (id: string, patch: Partial<Opportunity>) => {
+      applyOpp: (id, patch, opts) => {
         const prev = get().opps.find(o => o.id === id)
         set(state => ({
           opps: state.opps.map(o => o.id === id ? { ...o, ...patch, updated: TODAY } : o),
@@ -148,7 +175,20 @@ export const useStore = create<AppState>()(
         api(`/api/opportunities/${id}`, 'PATCH', patch)
         if (prev) {
           const u = get().currentUser
-          get().recordChange(diffOpp(prev, patch, { user: u }))
+          const events = diffOpp(prev, patch, { user: u })
+          const email = opts?.email
+          if (email) {
+            for (const ev of events) {
+              if (ev.importance === 'major') {
+                ev.emailStatus = email.status
+                ev.recipients = email.recipients
+                ev.recipientsSummary = email.recipientsSummary
+                ev.userNote = email.note
+                ev.excelStatus = 'pending'
+              }
+            }
+          }
+          get().recordChange(events)
         }
       },
 
@@ -166,7 +206,7 @@ export const useStore = create<AppState>()(
           if (typeof window !== 'undefined') document.dispatchEvent(new CustomEvent('bf:closereason'))
           return
         }
-        get().applyOpp(id, patch)
+        get().commitOrPromptMajor(id, patch)
       },
 
       moveStage: (id, stage) => {
@@ -175,7 +215,7 @@ export const useStore = create<AppState>()(
         const keepStatus = STATUS[current.status] && STATUS[current.status].stage === stage
         const status = keepStatus ? current.status : STAGE_STATUS[stage]
         if (status === current.status) return
-        // Route through updateOpp so the closed-reason gate + history recording apply.
+        // Route through updateOpp so the closed-reason + major-change gates apply.
         get().updateOpp(id, { status })
       },
 
@@ -192,9 +232,56 @@ export const useStore = create<AppState>()(
           closedAt: TODAY,
         }
         set({ pendingClose: null })
-        get().applyOpp(pending.id, fullPatch)
+        // Closing is a major change → chain into the notification modal.
+        get().commitOrPromptMajor(pending.id, fullPatch)
       },
       cancelClose: () => set({ pendingClose: null }),
+
+      // ── Major-change notification flow (Feature 3) ────────────────────────
+      commitOrPromptMajor: (id, patch) => {
+        const prev = get().opps.find(o => o.id === id)
+        if (!prev) { get().applyOpp(id, patch); return }
+        const predicate = ruleMajorPredicate(get().notificationRules)
+        const majors = majorChangesIn(prev, patch, predicate)
+        if (majors.length && typeof window !== 'undefined') {
+          set({ pendingMajor: { id, patch, majors } })
+          document.dispatchEvent(new CustomEvent('bf:majorchange'))
+          return
+        }
+        get().applyOpp(id, patch)
+      },
+
+      confirmMajor: async (opts) => {
+        const pending = get().pendingMajor
+        if (!pending) return null
+        set({ pendingMajor: null })
+        let status: EmailStatus = 'skipped'
+        if (opts.sendEmail) {
+          const opp = get().opps.find(o => o.id === pending.id)
+          const res = await sendMajorChangeEmail({
+            oppRef: opp?.ref ?? '', oppTitle: opp?.title ?? '',
+            changes: pending.majors.map(m => ({ label: m.label, oldValue: m.oldValue, newValue: m.newValue })),
+            userName: get().currentUser.name, note: opts.note,
+            recipientEmails: opts.recipientEmails, recipientsSummary: opts.recipientsSummary,
+          })
+          status = res.status
+        }
+        get().applyOpp(pending.id, pending.patch, {
+          email: {
+            status,
+            recipients: opts.recipientIds,
+            recipientsSummary: opts.sendEmail ? opts.recipientsSummary : 'No email sent',
+            note: opts.note,
+          },
+        })
+        return status
+      },
+      cancelMajor: () => set({ pendingMajor: null }),
+
+      setNotificationRule: (id, patch) => {
+        set(state => ({ notificationRules: state.notificationRules.map(r => r.id === id ? { ...r, ...patch } : r) }))
+        api('/api/notification-rules', 'POST', { rules: get().notificationRules })
+      },
 
       addOpp: (data) => {
         const id = uid('o')
@@ -334,12 +421,13 @@ export const useStore = create<AppState>()(
       hydrate: async () => {
         if (typeof window === 'undefined') return
         try {
-          const [oppsRes, clientsRes, optionsRes, remindersRes, changesRes] = await Promise.all([
+          const [oppsRes, clientsRes, optionsRes, remindersRes, changesRes, rulesRes] = await Promise.all([
             fetch('/api/opportunities'),
             fetch('/api/clients'),
             fetch('/api/options'),
             fetch('/api/reminders'),
             fetch('/api/change-history'),
+            fetch('/api/notification-rules'),
           ])
           if (oppsRes.ok) {
             const j = await oppsRes.json() as { opps?: Opportunity[] }
@@ -360,6 +448,10 @@ export const useStore = create<AppState>()(
           if (changesRes.ok) {
             const j = await changesRes.json() as { changes?: ChangeEvent[] }
             if (j.changes && j.changes.length) set({ changes: j.changes })
+          }
+          if (rulesRes.ok) {
+            const j = await rulesRes.json() as { rules?: NotificationRule[] }
+            if (j.rules && j.rules.length) set({ notificationRules: j.rules })
           }
         } catch {
           /* offline / no API — keep seeded data */

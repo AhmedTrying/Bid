@@ -7,6 +7,7 @@ import { Toast } from '@/components/app/toast'
 import { CommandPalette } from '@/components/app/command-palette'
 import { QuickAddModal } from '@/components/app/quick-add-modal'
 import { CloseReasonModal } from '@/components/app/closed-reason-modal'
+import { ImportantChangeModal } from '@/components/app/important-change-modal'
 import { ThemeProvider } from '@/components/app/providers'
 import { useStore } from '@/lib/store'
 
@@ -66,6 +67,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       {paletteOpen  && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       {quickAddOpen && <QuickAddModal  onClose={() => setQuickAddOpen(false)} />}
       <CloseReasonModal />
+      <ImportantChangeModal />
       <Toast />
     </div>
   )

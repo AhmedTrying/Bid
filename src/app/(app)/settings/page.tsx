@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useStore } from '@/lib/store'
 import { ACCENTS } from '@/lib/helpers'
 import { TEAM } from '@/lib/data'
@@ -72,6 +73,9 @@ export default function SettingsPage() {
                     <span style={{ fontSize: 13, fontWeight: 550 }}>{l as string}</span>
                   </label>
                 ))}
+                <Link href="/settings/notification-rules" className="bf-btn bf-btn-sm" style={{ textDecoration: 'none', alignSelf: 'flex-start', marginTop: 6 }}>
+                  <Icon name="alert" size={14} />Configure major-change notification rules
+                </Link>
               </Section>
             </div>
           )}

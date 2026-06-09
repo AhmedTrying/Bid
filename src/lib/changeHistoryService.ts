@@ -132,6 +132,28 @@ function baseEvent(ctx: RecordCtx, opp: Pick<Opportunity, 'id' | 'ref' | 'title'
   }
 }
 
+export interface MajorChange { field: string; label: string; oldValue: string; newValue: string }
+
+/** The major (notify-worthy) field changes in a patch, for the notification modal.
+ *  `isMajorField` lets the caller override the default rule set (notification rules). */
+export function majorChangesIn(
+  prev: Opportunity,
+  patch: Partial<Opportunity>,
+  isMajorField?: (field: string, newValue: unknown) => boolean,
+): MajorChange[] {
+  const out: MajorChange[] = []
+  for (const key of Object.keys(patch) as (keyof Opportunity)[]) {
+    if (!(key in FIELD_LABELS)) continue
+    const oldRaw = prev[key]
+    const newRaw = patch[key]
+    if (String(oldRaw ?? '') === String(newRaw ?? '')) continue
+    const major = isMajorField ? isMajorField(key, newRaw) : isMajorChange(key, newRaw)
+    if (!major) continue
+    out.push({ field: key, label: FIELD_LABELS[key], oldValue: formatValue(key, oldRaw), newValue: formatValue(key, newRaw) })
+  }
+  return out
+}
+
 /** One ChangeEvent per changed field between `prev` and `patch`. */
 export function diffOpp(prev: Opportunity, patch: Partial<Opportunity>, ctx: RecordCtx): ChangeEvent[] {
   const events: ChangeEvent[] = []
