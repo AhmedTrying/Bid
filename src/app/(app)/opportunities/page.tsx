@@ -9,7 +9,8 @@ import { STATUS, TEAM, CLASSES, PROCUREMENT, PORTALS, byClient, byId } from '@/l
 import { Icon } from '@/components/ui/icon'
 import { Avatar } from '@/components/ui/avatar'
 import { StatusBadge, PriorityBadge, TypePill } from '@/components/ui/badges'
-import type { Opportunity } from '@/lib/types'
+import { SavedViews } from '@/components/app/saved-views'
+import type { Opportunity, SavedViewConfig } from '@/lib/types'
 
 // ── Column definitions ────────────────────────────────────────────────────────
 const COLS = [
@@ -247,6 +248,18 @@ export default function OpportunitiesPage() {
     else { setSortKey(k); setSortDir('asc') }
   }
 
+  // ── Saved views (Fix 1) ───────────────────────────────────────────────────
+  const currentViewConfig: SavedViewConfig = { view, q, statusFilter, groupBy, sortKey, sortDir, hidden }
+  const applyView = (c: SavedViewConfig) => {
+    if (c.view !== undefined) setView(c.view)
+    if (c.q !== undefined) setQ(c.q)
+    if (c.statusFilter !== undefined) setStatusFilter(c.statusFilter)
+    if (c.groupBy !== undefined) setGroupBy(c.groupBy)
+    if (c.sortKey !== undefined) setSortKey(c.sortKey as ColKey)
+    if (c.sortDir !== undefined) setSortDir(c.sortDir)
+    if (c.hidden !== undefined) setHidden(c.hidden as Record<string, boolean>)
+  }
+
   const exportCSV = () => {
     const heads = visibleCols.map(c => c.label)
     const lines = [heads.join(',')]
@@ -289,9 +302,9 @@ export default function OpportunitiesPage() {
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--bf-text-faint)' }}>{opps.filter(v.f).length}</span>
           </button>
         ))}
-        <button className="bf-btn bf-btn-sm bf-btn-ghost" style={{ marginLeft: 4 }} onClick={() => flash('Saved views — demo')}>
-          <Icon name="plus" size={14} />Save view
-        </button>
+        <div style={{ marginLeft: 4 }}>
+          <SavedViews route="/opportunities" current={currentViewConfig} onApply={applyView} />
+        </div>
       </div>
 
       {/* toolbar */}

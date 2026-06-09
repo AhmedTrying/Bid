@@ -6,7 +6,7 @@
 import type {
   Opportunity, OppType, Priority, Result, StatusKey,
   SiteVisitMode, Document, CalendarItem, ChangeEvent, ChangeSource,
-  ChangeImportance, EmailStatus, ExcelStatus,
+  ChangeImportance, EmailStatus, ExcelStatus, SavedView, SavedViewConfig,
 } from './types'
 import { synthExtras } from './data'
 
@@ -297,6 +297,34 @@ export function changeToDbData(c: ChangeEvent) {
     userNote: c.userNote,
     readableSummary: c.readableSummary,
     createdAt: new Date(c.createdAt),
+  }
+}
+
+// ── Saved Views (Fix 1) ───────────────────────────────────────────────────────
+
+export interface SavedViewRow {
+  id: string
+  userId: string
+  route: string
+  name: string
+  config: string
+  isShared: boolean
+  order: number
+}
+
+export function dbToSavedView(r: SavedViewRow): SavedView {
+  let config: SavedViewConfig = {}
+  try { config = r.config ? (JSON.parse(r.config) as SavedViewConfig) : {} } catch { config = {} }
+  return {
+    id: r.id, userId: r.userId, route: r.route, name: r.name,
+    config, isShared: r.isShared, order: r.order,
+  }
+}
+
+export function savedViewToDbData(v: SavedView) {
+  return {
+    id: v.id, userId: v.userId, route: v.route, name: v.name,
+    config: JSON.stringify(v.config ?? {}), isShared: v.isShared, order: v.order,
   }
 }
 

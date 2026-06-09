@@ -5,7 +5,7 @@ import { persist } from 'zustand/middleware'
 import type {
   Opportunity, Theme, Accent, Density, CardStyle, StatusKey, Stage,
   Client, ListOption, CalendarItem, Document, TeamMember, ChangeEvent,
-  NotificationRule, EmailStatus,
+  NotificationRule, EmailStatus, SavedView, SavedViewConfig,
 } from './types'
 import {
   OPPS, STATUS, TODAY, CLIENTS, OPTIONS, TEAM, SEED_CHANGES,
@@ -63,6 +63,8 @@ interface AppState {
   pendingMajor: { id: string; patch: Partial<Opportunity>; majors: MajorChange[] } | null
   // notification rules (Feature 3)
   notificationRules: NotificationRule[]
+  // saved views (Fix 1)
+  savedViews: SavedView[]
   // toast
   toast: string | null
   // session actions
@@ -90,6 +92,10 @@ interface AppState {
   confirmMajor: (opts: ConfirmMajorOpts) => Promise<EmailStatus | null>
   cancelMajor: () => void
   setNotificationRule: (id: string, patch: Partial<NotificationRule>) => void
+  // saved views (Fix 1)
+  addSavedView: (name: string, route: string, config: SavedViewConfig) => SavedView
+  updateSavedView: (id: string, patch: { name?: string; config?: SavedViewConfig }) => void
+  deleteSavedView: (id: string) => void
   // change history (Feature 2)
   recordChange: (e: ChangeEvent | ChangeEvent[]) => void
   // client actions
@@ -168,6 +174,7 @@ export const useStore = create<AppState>()(
       pendingClose: null,
       pendingMajor: null,
       notificationRules: DEFAULT_NOTIFICATION_RULES.map(r => ({ ...r })),
+      savedViews: [],
       toast: null,
 
       setCurrentUser: (currentUser) => set({ currentUser }),
@@ -303,6 +310,25 @@ export const useStore = create<AppState>()(
       setNotificationRule: (id, patch) => {
         set(state => ({ notificationRules: state.notificationRules.map(r => r.id === id ? { ...r, ...patch } : r) }))
         api('/api/notification-rules', 'POST', { rules: get().notificationRules })
+      },
+
+      // ── Saved views (Fix 1) ───────────────────────────────────────────────
+      addSavedView: (name, route, config) => {
+        const v: SavedView = {
+          id: uid('sv'), userId: get().currentUser.id, route, name, config,
+          isShared: false, order: get().savedViews.filter(s => s.route === route).length,
+        }
+        set(state => ({ savedViews: [...state.savedViews, v] }))
+        api('/api/saved-views', 'POST', v)
+        return v
+      },
+      updateSavedView: (id, patch) => {
+        set(state => ({ savedViews: state.savedViews.map(s => s.id === id ? { ...s, ...patch } : s) }))
+        api(`/api/saved-views/${id}`, 'PATCH', patch)
+      },
+      deleteSavedView: (id) => {
+        set(state => ({ savedViews: state.savedViews.filter(s => s.id !== id) }))
+        api(`/api/saved-views/${id}`, 'DELETE')
       },
 
       addOpp: (data) => {
@@ -470,13 +496,14 @@ export const useStore = create<AppState>()(
       hydrate: async () => {
         if (typeof window === 'undefined') return
         try {
-          const [oppsRes, clientsRes, optionsRes, remindersRes, changesRes, rulesRes] = await Promise.all([
+          const [oppsRes, clientsRes, optionsRes, remindersRes, changesRes, rulesRes, viewsRes] = await Promise.all([
             fetch('/api/opportunities'),
             fetch('/api/clients'),
             fetch('/api/options'),
             fetch('/api/reminders'),
             fetch('/api/change-history'),
             fetch('/api/notification-rules'),
+            fetch('/api/saved-views'),
           ])
           if (oppsRes.ok) {
             const j = await oppsRes.json() as { opps?: Opportunity[] }
@@ -501,6 +528,10 @@ export const useStore = create<AppState>()(
           if (rulesRes.ok) {
             const j = await rulesRes.json() as { rules?: NotificationRule[] }
             if (j.rules && j.rules.length) set({ notificationRules: j.rules })
+          }
+          if (viewsRes.ok) {
+            const j = await viewsRes.json() as { views?: SavedView[] }
+            if (j.views) set({ savedViews: j.views })
           }
         } catch {
           /* offline / no API — keep seeded data */
