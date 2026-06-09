@@ -182,16 +182,14 @@ export default function SettingsPage() {
 
           {tab === 'data' && (
             <div style={{ display: 'grid', gap: 20 }}>
-              <Section title="Import">
-                <p style={{ fontSize: 13.5, color: 'var(--bf-text-2)', marginBottom: 14 }}>Import opportunities from Excel. The template maps SATCO Ref, Title, Client, Status, Bid Due, and Value columns.</p>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="bf-btn" onClick={() => flash('Download Excel template — demo')}><Icon name="download" size={15} />Download template</button>
-                  <button className="bf-btn" onClick={() => flash('Excel import — demo')}><Icon name="upload" size={15} />Import CSV / Excel</button>
-                </div>
-              </Section>
-              <Section title="Export">
-                <p style={{ fontSize: 13.5, color: 'var(--bf-text-2)', marginBottom: 14 }}>{opps.length} opportunities in workspace.</p>
-                <button className="bf-btn" onClick={() => flash('Export all data — demo')}><Icon name="download" size={15} />Export all as CSV</button>
+              <Section title="Excel import / export">
+                <p style={{ fontSize: 13.5, color: 'var(--bf-text-2)', marginBottom: 14 }}>
+                  Import an updated tracker or export a ready-to-use styled Excel file from your {opps.length} opportunities.
+                  Excel is an import/export output — your dashboard stays the source of truth.
+                </p>
+                <Link href="/excel-sync" className="bf-btn" style={{ textDecoration: 'none', alignSelf: 'flex-start' }}>
+                  <Icon name="table" size={15} />Open Excel Sync
+                </Link>
               </Section>
               <Section title="Reset">
                 <p style={{ fontSize: 13.5, color: 'var(--bf-text-2)', marginBottom: 14 }}>Reset workspace to demo data. All changes will be lost.</p>

@@ -12,7 +12,7 @@ import {
   CLOSING_STATUSES, setClientRegistry,
 } from './data'
 import {
-  diffOpp, recordCreated, recordDeleted, majorChangesIn, type MajorChange,
+  diffOpp, recordCreated, recordDeleted, recordSystem, majorChangesIn, type MajorChange,
 } from './changeHistoryService'
 import { DEFAULT_NOTIFICATION_RULES, ruleMajorPredicate } from './notificationRulesService'
 import { sendMajorChangeEmail } from './notificationService'
@@ -79,6 +79,9 @@ interface AppState {
   moveStage: (id: string, stage: Stage) => void
   addOpp: (data: Partial<Opportunity>) => Opportunity
   deleteOpp: (id: string) => void
+  // excel import / export (Feature 1)
+  applyImport: (incoming: { ref: string; patch: Partial<Opportunity> }[]) => { added: number; updated: number }
+  recordExport: (count: number) => void
   // closed/lost reason flow (Fix 3)
   confirmClose: (category: string, notes: string) => void
   cancelClose: () => void
@@ -116,6 +119,25 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null
 // Monotonic-ish client id generator (collision-safe within a session).
 let _seq = 0
 const uid = (prefix: string) => `${prefix}${Date.now().toString(36)}${(_seq++).toString(36)}`
+
+// Shared blank opportunity (used by addOpp and Excel import).
+function makeDefaultOpp(id: string, clientId: string, autoRef: string): Opportunity {
+  return {
+    id, ref: autoRef, rfpNumber: '',
+    title: '', client: clientId, portal: 'In-Tend',
+    type: 'Bid', cls: 'Civil Works', proc: 'Open Tender',
+    status: 'New Lead', priority: 'Medium', owner: '', reviewer: '',
+    partnerInvolved: false, partnerName: '', contractDuration: '',
+    rfpReceived: TODAY, siteVisit: '', siteVisitMode: 'date',
+    qDeadline: '', qDeadlineTime: '', bidDue: '', bidDueTime: '',
+    submission: '', followUp: '',
+    bondPct: 0, bondValidity: '', bondValidityDays: null, bondReq: false,
+    result: '', value: 0, updated: TODAY, notes: '',
+    closedReasonCategory: '', closedReasonNotes: '', closedBy: '', closedAt: '',
+    archivedAt: '', followUpTwo: '',
+    checklist: null, followUps: [], documents: [], activity: [],
+  }
+}
 
 // ── Write-through helper (fire-and-forget; no-op on the server) ───────────────
 // When a Postgres DB is configured the API persists; otherwise it's a harmless
@@ -286,25 +308,10 @@ export const useStore = create<AppState>()(
       addOpp: (data) => {
         const id = uid('o')
         const autoRef = 'SATCO-2026-0' + (160 + Math.floor(Math.random() * 40))
-        const defaults: Opportunity = {
-          id, ref: autoRef, rfpNumber: '',
-          title: '', client: get().clients[0]?.id || 'rta', portal: 'In-Tend',
-          type: 'Bid', cls: 'Civil Works', proc: 'Open Tender',
-          status: 'New Lead', priority: 'Medium', owner: 'lh', reviewer: '',
-          partnerInvolved: false, partnerName: '', contractDuration: '',
-          rfpReceived: TODAY, siteVisit: '', siteVisitMode: 'date',
-          qDeadline: '', qDeadlineTime: '', bidDue: '', bidDueTime: '',
-          submission: '', followUp: '',
-          bondPct: 0, bondValidity: '', bondValidityDays: null, bondReq: false,
-          result: '', value: 0, updated: TODAY, notes: '',
-          closedReasonCategory: '', closedReasonNotes: '', closedBy: '', closedAt: '',
-          archivedAt: '', followUpTwo: '',
-          checklist: null,
-          followUps: [], documents: [],
-          activity: [{ who: 'lh', verb: 'created this opportunity', when: 'just now' }],
-        }
         const o: Opportunity = {
-          ...defaults,
+          ...makeDefaultOpp(id, get().clients[0]?.id || 'rta', autoRef),
+          owner: 'lh',
+          activity: [{ who: 'lh', verb: 'created this opportunity', when: 'just now' }],
           ...data,
           id,
           ref: (data.ref && data.ref.trim()) ? data.ref : autoRef,
@@ -314,6 +321,48 @@ export const useStore = create<AppState>()(
         api('/api/opportunities', 'POST', o)
         get().recordChange(recordCreated(o, { user: get().currentUser }))
         return o
+      },
+
+      // ── Excel import / export (Feature 1) ─────────────────────────────────
+      applyImport: (incoming) => {
+        const state = get()
+        const opps = [...state.opps]
+        let added = 0, updated = 0
+        for (const { ref, patch } of incoming) {
+          const idx = ref ? opps.findIndex(o => o.ref === ref) : -1
+          if (idx >= 0) {
+            opps[idx] = { ...opps[idx], ...patch, updated: TODAY }
+            api(`/api/opportunities/${opps[idx].id}`, 'PATCH', patch)
+            updated++
+          } else {
+            const id = uid('o')
+            const autoRef = ref || ('SATCO-IMP-' + id)
+            const o: Opportunity = {
+              ...makeDefaultOpp(id, state.clients[0]?.id || 'rta', autoRef),
+              ...patch, id, ref: autoRef, updated: TODAY,
+            }
+            opps.unshift(o)
+            api('/api/opportunities', 'POST', o)
+            added++
+          }
+        }
+        set({ opps })
+        const u = state.currentUser
+        get().recordChange(recordSystem({ user: u }, {
+          actionType: 'excel_import', source: 'excel_import', excelStatus: 'ready',
+          newValue: `${added} added · ${updated} updated`,
+          readableSummary: `${u.name} imported the Excel tracker: ${added} rows added, ${updated} rows updated.`,
+        }))
+        return { added, updated }
+      },
+
+      recordExport: (count) => {
+        const u = get().currentUser
+        get().recordChange(recordSystem({ user: u }, {
+          actionType: 'excel_export', source: 'excel_export', excelStatus: 'exported',
+          newValue: String(count),
+          readableSummary: `${u.name} exported the updated Excel tracker with ${count} opportunities.`,
+        }))
       },
 
       deleteOpp: (id) => {

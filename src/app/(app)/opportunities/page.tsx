@@ -324,8 +324,11 @@ export default function OpportunitiesPage() {
             </button>
             {colMenu && <ColumnMenu hidden={hidden} setHidden={setHidden} onClose={() => setColMenu(false)} />}
           </div>
-          <button className="bf-btn bf-btn-sm" onClick={exportCSV}>
-            <Icon name="download" size={15} />Export
+          <Link href="/excel-sync" className="bf-btn bf-btn-sm" style={{ textDecoration: 'none' }}>
+            <Icon name="download" size={15} />Export Excel
+          </Link>
+          <button className="bf-btn bf-btn-sm bf-btn-ghost" onClick={exportCSV}>
+            CSV
           </button>
         </div>
       </div>

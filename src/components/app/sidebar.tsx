@@ -25,6 +25,7 @@ const NAV = [
     { id: 'calendar',  label: 'Calendar',                icon: 'calendar', href: '/calendar' },
     { id: 'clients',   label: 'Clients & Portals',       icon: 'clients',  href: '/clients' },
     { id: 'change-history', label: 'Change History',     icon: 'clock',    href: '/change-history' },
+    { id: 'excel-sync', label: 'Excel Sync',             icon: 'table',    href: '/excel-sync' },
     { id: 'reports',   label: 'Reports',                 icon: 'reports',  href: '/reports' },
     { id: 'settings',  label: 'Settings',                icon: 'settings', href: '/settings' },
   ]},
