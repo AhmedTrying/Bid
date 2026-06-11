@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BidFlow Tracker — User Manual</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm 15mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --accent: #C8841F; --accent-soft: #FBF3E4; --ink: #1F1C17; --ink2: #5B564E;
+    --faint: #8C8678; --line: #E8E3D9; --card: #FAF8F4; --good: #2E7D4F; --danger: #B3402E;
+  }
+  body { font-family: "Segoe UI", system-ui, sans-serif; color: var(--ink); font-size: 10.5pt; line-height: 1.55; }
+
+  /* Cover */
+  .cover { height: 255mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+  .cover .logo { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; }
+  .cover .mark { width: 52px; height: 52px; border-radius: 14px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; }
+  .cover .brand { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+  .cover .sub { font-size: 10pt; letter-spacing: 2.5px; color: var(--faint); font-weight: 600; }
+  .cover h1 { font-size: 40pt; font-weight: 800; letter-spacing: -1px; line-height: 1.1; margin-bottom: 14px; }
+  .cover p.lead { font-size: 13pt; color: var(--ink2); max-width: 130mm; margin-bottom: 36px; }
+  .cover .meta { border-top: 2px solid var(--line); padding-top: 14px; color: var(--faint); font-size: 9.5pt; }
+
+  /* TOC */
+  .toc { page-break-after: always; }
+  .toc h2 { margin-bottom: 14px; }
+  .toc ol { list-style: none; counter-reset: t; }
+  .toc li { counter-increment: t; padding: 7px 2px; border-bottom: 1px solid var(--line); font-size: 11pt; display: flex; gap: 12px; }
+  .toc li::before { content: counter(t, decimal-leading-zero); color: var(--accent); font-weight: 700; min-width: 24px; }
+
+  /* Sections */
+  section { page-break-before: always; }
+  section.flow { page-break-before: auto; }
+  h2 { font-size: 17pt; font-weight: 800; letter-spacing: -0.4px; margin-bottom: 4px; }
+  h2 .no { color: var(--accent); margin-right: 8px; }
+  .crumb { color: var(--faint); font-size: 9pt; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+  h3 { font-size: 11.5pt; font-weight: 700; margin: 13px 0 5px; }
+  p { margin-bottom: 7px; color: var(--ink2); }
+  p strong, li strong { color: var(--ink); }
+
+  img.shot { width: 100%; border: 1px solid var(--line); border-radius: 8px; margin: 8px 0 10px; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+  img.shot.half { width: 72%; }
+
+  ol.steps { margin: 6px 0 10px 0; padding-left: 0; list-style: none; counter-reset: s; }
+  ol.steps li { counter-increment: s; position: relative; padding: 3px 0 3px 30px; color: var(--ink2); }
+  ol.steps li::before { content: counter(s); position: absolute; left: 0; top: 4px; width: 19px; height: 19px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 8.5pt; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  ul.plain { margin: 4px 0 10px 18px; color: var(--ink2); }
+  ul.plain li { margin-bottom: 3px; }
+
+  .tip { background: var(--accent-soft); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 8px 12px; margin: 10px 0; font-size: 9.5pt; color: var(--ink2); }
+  .tip b { color: var(--accent); }
+  .warn { background: #FDEEEA; border-left: 3px solid var(--danger); border-radius: 0 8px 8px 0; padding: 8px 12px; margin: 10px 0; font-size: 9.5pt; color: var(--ink2); }
+  .warn b { color: var(--danger); }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9.5pt; }
+  th { text-align: left; background: var(--card); color: var(--ink); font-weight: 700; }
+  th, td { border: 1px solid var(--line); padding: 6px 9px; }
+  td { color: var(--ink2); }
+  code { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; font-family: Consolas, monospace; font-size: 9pt; color: var(--ink); }
+  .cols { display: flex; gap: 14px; }
+  .cols > div { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- ───────────────────────────── COVER ───────────────────────────── -->
+<div class="cover">
+  <div class="logo">
+    <div class="mark">⚡</div>
+    <div>
+      <div class="brand">BidFlow</div>
+      <div class="sub">TENDER COMMAND CENTER</div>
+    </div>
+  </div>
+  <h1>User Manual</h1>
+  <p class="lead">Everything your team needs to manage tenders, PQQs and proposals in BidFlow —
+  from signing in and tracking live bids, to team notifications, change history and Excel import / export.</p>
+  <div class="meta">
+    Version 1.0 &nbsp;·&nbsp; June 2026 &nbsp;·&nbsp; SATCO Business Development<br>
+    All amounts are shown in <b>SAR</b>. The dashboard is the source of truth — Excel is an import/export output.
+  </div>
+</div>
+
+<!-- ───────────────────────────── TOC ───────────────────────────── -->
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li>Welcome — what BidFlow is</li>
+    <li>Signing in &amp; your account</li>
+    <li>Home dashboard</li>
+    <li>Command Center (pipeline board)</li>
+    <li>Opportunities table — edit, filter, saved views</li>
+    <li>The opportunity page</li>
+    <li>Important changes — notifying the team</li>
+    <li>Closing an opportunity — the reason is required</li>
+    <li>Change History — who changed what, when</li>
+    <li>Excel Sync — CSV &amp; styled Excel</li>
+    <li>Calendar &amp; reminders</li>
+    <li>Users, roles &amp; permissions (Admin)</li>
+    <li>Notification rules (Admin)</li>
+    <li>Quick reference &amp; FAQ</li>
+  </ol>
+</div>
+
+<!-- ───────────────────────────── 1. WELCOME ───────────────────────────── -->
+<section class="flow">
+  <div class="crumb">Getting started</div>
+  <h2><span class="no">01</span>Welcome — what BidFlow is</h2>
+  <p><b>BidFlow Tracker</b> replaces the shared Excel proposal tracker with one live workspace for the whole
+  BD team. Every opportunity — bid, PQQ, RFQ, EOI — lives on the dashboard, moves through the pipeline,
+  and is edited by the team in real time. Excel hasn’t gone away: you can <b>export</b> a ready-made tracker
+  (CSV or the styled SATCO template) at any time, and <b>import</b> one back in.</p>
+
+  <h3>The pipeline</h3>
+  <p>Every opportunity has a <b>status</b> that places it in one of these stages:</p>
+  <p style="font-size:9.5pt"><code>New Lead</code> → <code>To Qualify</code> → <code>Live PQQ/RFQ</code> → <code>Live Bid</code> → <code>Submitted</code> → <code>Negotiation</code> → <code>Awarded</code> / <code>Closed-Lost</code> / <code>Postponed</code></p>
+
+  <h3>The golden rules</h3>
+  <ul class="plain">
+    <li><b>The dashboard is the source of truth.</b> Everything you edit is saved instantly to the database.</li>
+    <li><b>Every change is recorded.</b> Change History shows who changed what, when, and old → new values.</li>
+    <li><b>Important changes ask before saving.</b> Deadline, status and bond changes prompt you to notify the team.</li>
+    <li><b>Closing always needs a reason.</b> You cannot close, cancel or postpone a bid without saying why.</li>
+    <li><b>All money is SAR.</b></li>
+  </ul>
+  <div class="tip"><b>Tip</b> — Press <code>Ctrl + K</code> anywhere to search, or <code>N</code> to add a new opportunity.</div>
+</section>
+
+<!-- ───────────────────────────── 2. SIGN IN ───────────────────────────── -->
+<section>
+  <div class="crumb">Getting started</div>
+  <h2><span class="no">02</span>Signing in &amp; your account</h2>
+  <p>Open the BidFlow web address. If you are not signed in, you will see the sign-in screen.</p>
+  <img class="shot half" src="shots/01-login.png" alt="Sign in">
+  <ol class="steps">
+    <li>Enter your <b>work email</b> (e.g. <code>layla.haddad@satco.example</code>).</li>
+    <li>Enter your password. New accounts start with the temporary password <code>bidflow123</code>.</li>
+    <li>Click <b>Sign in</b>. You land on your Home dashboard, greeted by name.</li>
+  </ol>
+  <h3>Signing out</h3>
+  <p>Click the <b>sign-out icon</b> next to your name at the bottom of the left sidebar.</p>
+  <div class="warn"><b>Important</b> — ask your Admin to change your temporary password after your first sign-in
+  (Settings → Users → your row → set a new password).</div>
+</section>
+
+<!-- ───────────────────────────── 3. HOME ───────────────────────────── -->
+<section>
+  <div class="crumb">Daily work</div>
+  <h2><span class="no">03</span>Home dashboard</h2>
+  <p>Home is your morning briefing: how many bids are live, what is due this week, what needs chasing.</p>
+  <img class="shot" src="shots/02-home.png" alt="Home dashboard">
+  <ul class="plain">
+    <li><b>KPI cards</b> — Live Bids (with SAR pipeline value), Live PQQ/RFQ, Due this week, Overdue follow-ups, Submitted this month, Awarded this year, Closed/Lost, Win rate. <b>Click any card</b> to open that list.</li>
+    <li><b>Today’s Focus</b> — bids due soon, last day for questions, upcoming site visits.</li>
+    <li><b>Pipeline snapshot</b> — count of opportunities per stage; click <b>Open</b> for the board.</li>
+    <li><b>Quick buttons</b> — Add Opportunity, Add Follow-up, Weekly Report, Import Excel.</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────────── 4. COMMAND CENTER ───────────────────────────── -->
+<section>
+  <div class="crumb">Daily work</div>
+  <h2><span class="no">04</span>Command Center (pipeline board)</h2>
+  <p>The board shows every opportunity as a card in its pipeline stage — like a Kanban board for tenders.</p>
+  <img class="shot" src="shots/03-command.png" alt="Command Center board">
+  <ol class="steps">
+    <li><b>Drag a card</b> to another column to change its status.</li>
+    <li>Dragging into <b>Closed / Lost</b> asks for a closing reason first (see section 08).</li>
+    <li>Important moves (e.g. into Submitted or Awarded) ask whether to notify the team (see section 07).</li>
+    <li>Click a card to open the full opportunity page.</li>
+  </ol>
+</section>
+
+<!-- ───────────────────────────── 5. OPPORTUNITIES TABLE ───────────────────────────── -->
+<section>
+  <div class="crumb">Daily work</div>
+  <h2><span class="no">05</span>Opportunities table — edit, filter, saved views</h2>
+  <p>The master list of every opportunity, modelled on the old Excel tracker — but live and shared.</p>
+  <img class="shot" src="shots/04-opportunities.png" alt="Opportunities table">
+  <h3>Editing directly in the table</h3>
+  <ol class="steps">
+    <li><b>Click any cell</b> (status, priority, owner, dates, value…) to edit it in place.</li>
+    <li>Pick or type the new value — it saves the moment you leave the cell.</li>
+    <li>Open the full page by clicking the <b>SATCO Ref</b> or the title.</li>
+  </ol>
+  <h3>Finding things</h3>
+  <ul class="plain">
+    <li><b>View tabs</b> — All, Live bids, Due this week, PQQ/RFQ, Submitted, <b>My work</b> (only opportunities you own).</li>
+    <li><b>Search</b> by title, reference or client; filter by status; group by status / client / owner / classification.</li>
+    <li><b>Columns</b> menu — show or hide any column.</li>
+  </ul>
+  <h3>Saved views</h3>
+  <ol class="steps">
+    <li>Set up the filters, grouping, sorting and columns you like.</li>
+    <li>Click <b>Saved views → type a name → Save</b>.</li>
+    <li>Your view is stored to your account — reopen it any time from the same menu, on any device.</li>
+  </ol>
+</section>
+
+<!-- ───────────────────────────── 6. DETAIL PAGE ───────────────────────────── -->
+<section>
+  <div class="crumb">Daily work</div>
+  <h2><span class="no">06</span>The opportunity page</h2>
+  <p>One page with everything about a tender. <b>Click any value to edit it</b> — there is no separate edit mode.</p>
+  <img class="shot" src="shots/05-detail.png" alt="Opportunity detail page">
+  <ul class="plain">
+    <li><b>Overview</b> — reference, client, portal, classification, status, owner, reviewer, value (SAR), partner.</li>
+    <li><b>Dates &amp; Deadlines</b> — RFP received, site visit, question deadline, bid due (+ time), submission, follow-ups.</li>
+    <li><b>Commercial &amp; Bid Bond</b> — bond required, %, validity days, expiry date.</li>
+    <li><b>Documents &amp; Links</b> — links to the RFP package, BOQ, proposals (files stay in your folders).</li>
+    <li><b>Activity &amp; Changes</b> — this opportunity’s own change history.</li>
+  </ul>
+  <h3>Right-hand panel</h3>
+  <ul class="plain">
+    <li><b>Health score</b> — flags missing key fields (owner, reviewer, bid due, value…).</li>
+    <li><b>Quick actions</b> — Mark Submitted · Move to Negotiation · Mark Awarded · Mark Closed/Lost.</li>
+    <li><b>Reminders &amp; key dates</b> — add reminders that also appear on the Calendar.</li>
+    <li><b>Risk indicators</b> — automatic warnings (deadline imminent, no owner, bond missing…).</li>
+  </ul>
+  <div class="tip"><b>Tip</b> — to add a brand-new opportunity press <code>N</code>, or click <b>+ New opportunity</b> (top-right). The form covers all tracker fields; the reference number is auto-generated if you leave it blank.</div>
+</section>
+
+<!-- ───────────────────────────── 7. IMPORTANT CHANGE ───────────────────────────── -->
+<section>
+  <div class="crumb">Team workflow</div>
+  <h2><span class="no">07</span>Important changes — notifying the team</h2>
+  <p>Some edits matter to everyone: bid due dates, question deadlines, status moves to Submitted / Awarded /
+  Closed, results, and bid-bond changes. When you make one, BidFlow asks <b>before saving</b>:</p>
+  <img class="shot" src="shots/06-notify-modal.png" alt="Important Change modal">
+  <ol class="steps">
+    <li>Check the summary — it shows exactly what changes, old → new.</li>
+    <li><b>Notify all team members</b> is selected by default. Or choose <b>Select specific recipients</b> and tick people (grouped by team).</li>
+    <li>Optionally add a short note for context.</li>
+    <li>Click <b>Confirm change &amp; send</b> — the change is saved and the email goes out.</li>
+    <li>Or click <b>Cancel change</b> — <b>nothing is saved and no email is sent</b>.</li>
+  </ol>
+  <p>Some changes also offer <b>Save without email</b> (your Admin controls which — see section 13).
+  Normal edits (notes, portal, classification…) never show this dialog; they just save.</p>
+  <div class="tip"><b>Tip</b> — the change is always included in the next Excel export, and the email status
+  (sent / to whom) is recorded in Change History.</div>
+</section>
+
+<!-- ───────────────────────────── 8. CLOSED REASON ───────────────────────────── -->
+<section>
+  <div class="crumb">Team workflow</div>
+  <h2><span class="no">08</span>Closing an opportunity — the reason is required</h2>
+  <p>Whenever a bid is moved to <b>Closed Lost, Cancelled, No-Go or Postponed</b> — from the table, the page,
+  the quick actions or the board — BidFlow asks for the real reason first:</p>
+  <img class="shot" src="shots/07-reason-modal.png" alt="Reason required modal">
+  <ol class="steps">
+    <li>Pick a <b>reason category</b> (Commercially not competitive, Lost to competitor, Client cancelled, …).</li>
+    <li>Add notes — lessons learned, the competitor, the price gap.</li>
+    <li>Click <b>Save reason &amp; close</b>. (Closing is an important change, so the notify dialog follows.)</li>
+  </ol>
+  <p>The stored reason then shows on the <b>Closed / Lost</b> page — hover for the notes:</p>
+  <img class="shot" src="shots/08-closed.png" alt="Closed / Lost page with stored reasons">
+  <div class="tip"><b>Tip</b> — Admins can edit the list of reason categories under <b>Settings → Lists → Closed / Lost reasons</b>.</div>
+</section>
+
+<!-- ───────────────────────────── 9. CHANGE HISTORY ───────────────────────────── -->
+<section>
+  <div class="crumb">Team workflow</div>
+  <h2><span class="no">09</span>Change History — who changed what, when</h2>
+  <p>Open <b>Change History</b> in the sidebar for the full audit trail, written in plain language —
+  e.g. “Layla Haddad changed Status from Live Bid to Submitted for SATCO-2026-0142.”</p>
+  <img class="shot" src="shots/09-history.png" alt="Change History page">
+  <ul class="plain">
+    <li><b>Summary cards</b> — changes today, important changes, emails sent, Excel imports/exports, failed actions.</li>
+    <li><b>View tabs</b> — All · My changes · Important · Status changes · Deadline changes · Excel activity · Emails sent · Failed · Deleted/archived.</li>
+    <li><b>Filters</b> — search, user, action type, importance, source.</li>
+    <li>Each entry shows the <b>old → new value</b>, badges for <b>Email sent</b> and <b>Ready for export</b>, and a <b>Details</b> drawer (recipients, notes).</li>
+    <li>Click the reference to jump to the opportunity — its own page shows the same timeline under <b>Activity &amp; Changes</b>.</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────────── 10. EXCEL SYNC ───────────────────────────── -->
+<section>
+  <div class="crumb">Excel</div>
+  <h2><span class="no">10</span>Excel Sync — CSV &amp; styled Excel</h2>
+  <p>Open <b>Excel Sync</b> in the sidebar. The dashboard stays the source of truth; here you move data in and out.</p>
+  <img class="shot" src="shots/10-excel.png" alt="Excel Sync page">
+  <h3>Exporting</h3>
+  <ol class="steps">
+    <li><b>Export CSV</b> (recommended) — one clean file with every opportunity. Opens perfectly in Excel and Google Sheets. Values in SAR, people and clients by name.</li>
+    <li><b>Export styled Excel</b> — fills the official SATCO tracker template: Live Bids, Live PQQ, Submitted Bid-Negotiation, Closed Bids, Awarded Bids, Submitted PQQs and RFQs — colours and formatting preserved. Each opportunity lands on the right sheet automatically.</li>
+  </ol>
+  <h3>Importing</h3>
+  <ol class="steps">
+    <li>Click <b>Import CSV or Excel</b> and choose your file (.csv or .xlsx).</li>
+    <li>Review the <b>preview</b>: rows marked <b>New</b> or <b>Update</b>, with counts and “Needs review” warnings (e.g. an unknown client name). Nothing is changed yet.</li>
+    <li>Click <b>Apply import</b> to bring the data in — or <b>Cancel</b> to discard everything.</li>
+  </ol>
+  <p>The status cards show rows in the dashboard, last export/import time, and <b>pending changes since the last
+  export</b> — so you always know if your Excel copy is stale.</p>
+  <div class="tip"><b>Tip</b> — rows are matched by <b>SATCO Reference</b>: same reference = update, new reference = new opportunity.</div>
+</section>
+
+<!-- ───────────────────────────── 11. CALENDAR ───────────────────────────── -->
+<section>
+  <div class="crumb">Daily work</div>
+  <h2><span class="no">11</span>Calendar &amp; reminders</h2>
+  <p>The Calendar shows every deadline (bid due, question deadline, site visits, bond expiry) plus your own reminders.</p>
+  <img class="shot" src="shots/11-calendar.png" alt="Calendar">
+  <ol class="steps">
+    <li><b>Click a day</b> to add a reminder — pick a type, time and (optionally) link it to an opportunity.</li>
+    <li>Click an existing reminder to edit or complete it.</li>
+    <li>Reminders linked to an opportunity also show on that opportunity’s page.</li>
+  </ol>
+</section>
+
+<!-- ───────────────────────────── 12. USERS & PERMISSIONS ───────────────────────────── -->
+<section>
+  <div class="crumb">Administration</div>
+  <h2><span class="no">12</span>Users, roles &amp; permissions (Admin)</h2>
+  <p>Admins manage the team under <b>Settings → Manage users</b>.</p>
+  <img class="shot" src="shots/12-users.png" alt="Manage users">
+  <ol class="steps">
+    <li><b>Add user</b> — name, email, role, team group and a temporary password.</li>
+    <li>Change a user’s <b>role</b> from the dropdown — their access updates immediately.</li>
+    <li>Toggle <b>Active / Disabled</b> to suspend access without deleting the account.</li>
+  </ol>
+  <h3>Custom permissions per person</h3>
+  <p>Click <b>Permissions</b> on any row to fine-tune a single person beyond their role:</p>
+  <img class="shot" src="shots/13-permissions.png" alt="Per-user permissions">
+  <ul class="plain">
+    <li>Tick or untick any of the 14 permissions (delete/archive, import/export, manage users, edit commercial…).</li>
+    <li>The button shows <b>Custom</b> when overridden; <b>Reset to role</b> returns to the role’s defaults.</li>
+    <li>Admins always keep full access.</li>
+  </ul>
+  <h3>Roles</h3>
+  <p><b>Settings → Roles &amp; permissions</b> shows the full matrix: Admin, BD Manager, Proposal Manager,
+  Tender Coordinator, Document Controller, Commercial Manager, Finance, Management Viewer, Reviewer.</p>
+</section>
+
+<!-- ───────────────────────────── 13. NOTIFICATION RULES ───────────────────────────── -->
+<section>
+  <div class="crumb">Administration</div>
+  <h2><span class="no">13</span>Notification rules (Admin)</h2>
+  <p><b>Settings → Notifications → Configure major-change notification rules</b> controls which edits open the
+  “Important Change — Notify Team?” dialog.</p>
+  <img class="shot" src="shots/14-rules.png" alt="Notification rules">
+  <ul class="plain">
+    <li><b>Ask to notify</b> — on: editing that field opens the notify dialog. Off: it saves silently (still recorded in Change History).</li>
+    <li><b>Allow save w/o email</b> — adds the “Save without email” button to the dialog for that field.</li>
+  </ul>
+</section>
+
+<!-- ───────────────────────────── 14. QUICK REFERENCE ───────────────────────────── -->
+<section>
+  <div class="crumb">Reference</div>
+  <h2><span class="no">14</span>Quick reference &amp; FAQ</h2>
+
+  <h3>I want to… → do this</h3>
+  <table>
+    <tr><th>I want to…</th><th>Do this</th></tr>
+    <tr><td>Add a new tender / PQQ</td><td>Press <code>N</code> or click <b>+ New opportunity</b></td></tr>
+    <tr><td>Change a deadline</td><td>Click the date on the table or the opportunity page → confirm the notify dialog</td></tr>
+    <tr><td>Move a bid to Submitted</td><td>Quick action <b>Mark Submitted</b>, or drag the card, or edit Status</td></tr>
+    <tr><td>Close a lost bid</td><td><b>Mark Closed / Lost</b> → choose the reason → confirm</td></tr>
+    <tr><td>See who changed something</td><td>Sidebar → <b>Change History</b> (or the opportunity’s <b>Activity &amp; Changes</b>)</td></tr>
+    <tr><td>Get the tracker as Excel</td><td>Sidebar → <b>Excel Sync</b> → <b>Export CSV</b> or <b>Export styled Excel</b></td></tr>
+    <tr><td>Bring an updated tracker in</td><td><b>Excel Sync</b> → <b>Import CSV or Excel</b> → review preview → Apply</td></tr>
+    <tr><td>Save my favourite filters</td><td>Opportunities → <b>Saved views</b> → name → Save</td></tr>
+    <tr><td>Add a teammate</td><td>(Admin) Settings → <b>Manage users</b> → Add user</td></tr>
+    <tr><td>Edit dropdown options</td><td>(Admin) Settings → <b>Lists</b> (portals, classifications, reasons…)</td></tr>
+  </table>
+
+  <h3>FAQ</h3>
+  <p><b>Did my edit save?</b> Yes — edits save the moment you leave the field and a toast confirms it. Important
+  changes save only after you confirm the dialog; cancelling saves nothing.</p>
+  <p><b>Why am I asked for a reason when closing?</b> So the Closed/Lost page and reports always show the real,
+  recorded reason — it is never guessed or auto-generated.</p>
+  <p><b>Why did a dialog appear for my edit?</b> The field is marked “important” in the notification rules.
+  Confirm to save and notify, or cancel to discard.</p>
+  <p><b>Are the notification emails real?</b> They are recorded and shown as “Sent (demo)” until the email
+  service is connected by your administrator. Everything else works the same.</p>
+  <p><b>Can I break the Excel template?</b> No — the export fills a fresh copy of the official template every
+  time. Your dashboard data is never affected by exporting.</p>
+  <p><b>I can’t see the Delete button.</b> Your role doesn’t have the delete/archive permission — ask an Admin.</p>
+
+  <div class="tip" style="margin-top:14px"><b>Keyboard shortcuts</b> — <code>Ctrl + K</code> search everything ·
+  <code>N</code> new opportunity · <code>Esc</code> close any dialog.</div>
+</section>
+
+</body>
+</html>
